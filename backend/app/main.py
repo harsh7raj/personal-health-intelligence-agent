@@ -2,7 +2,16 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.routes import health
+from app.api.routes import (
+    auth,
+    background,
+    health,
+    medications,
+    patients,
+    reports,
+    symptoms,
+    vitals,
+)
 from app.core.config import get_settings
 
 
@@ -20,6 +29,13 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.include_router(health.router, prefix=settings.API_PREFIX)
+    app.include_router(auth.router, prefix=settings.API_PREFIX)
+    app.include_router(patients.router, prefix=settings.API_PREFIX)
+    app.include_router(background.router, prefix=settings.API_PREFIX)
+    app.include_router(medications.router, prefix=settings.API_PREFIX)
+    app.include_router(vitals.router, prefix=settings.API_PREFIX)
+    app.include_router(symptoms.router, prefix=settings.API_PREFIX)
+    app.include_router(reports.router, prefix=settings.API_PREFIX)
     return app
 
 

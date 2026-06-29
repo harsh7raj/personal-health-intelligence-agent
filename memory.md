@@ -261,9 +261,10 @@ Pydantic `PatientHealthState` + sub-models (§3). *Depends: 1.*
 **Note:** Chroma collections (§5) bootstrap deferred to the unit that first writes embeddings (Phase 4),
 not done here — Phase 2 was Postgres-side only.
 
-### Phase 3 — Auth & Core CRUD
-JWT auth (register/login/me, roles); patient profile + background; CRUD for symptoms, vitals, reports
-(upload), medications, history — **persistence only, no pipeline yet**. *Depends: 2.*
+### Phase 3 — Auth & Core CRUD ✅ DONE (2026-06-29)
+JWT auth (register/login/me); patient profile + background/history; CRUD for medications, vitals,
+symptoms (→entries), reports (multipart upload). Persistence only, no pipeline. Ownership-guarded,
+verified group-by-group against live DB. *Depends: 2.*
 
 ### Phase 4 — LangGraph Pipeline + Memory
 Wire the graph (§7) with `intake_node` (parse + Chroma write + entries write) and `memory_node`
@@ -293,6 +294,22 @@ non-diagnostic-language audit, viva walkthrough script. *Depends: 7.*
 
 ## 9. Work Log (newest first)
 
+- **2026-06-29** — **Auth & Core CRUD DONE** (roadmap Phase 3, persistence only — no LangGraph/AI).
+  Built + verified one group at a time (real request→DB→response):
+  **A) Auth** — `core/security.py` (bcrypt hashing + pyjwt HS256), `api/deps.py`
+  (`get_current_user`, `get_owned_patient`/`OwnedPatient` ownership guard), `routes/auth.py`
+  (register 201/409, login OAuth2-form→JWT, `/me`). **B) Patient** — `routes/patients.py`
+  (POST/GET/PUT, dup profile→409) + `routes/background.py` (GET/PUT upsert `medical_background`,
+  `/history` alias via stacked decorators). **C) Clinical** — `medications` (full CRUD),
+  `vitals`→`vital_readings` (POST auto `recorded_at`/GET/DELETE), `symptoms`→`entries(type='symptom')`
+  (POST/GET/DELETE, **no PUT**, returns 405). **D) Reports** — `routes/reports.py` multipart upload
+  → file saved to `UPLOAD_DIR/<patient>/<uuid>_<name>` + row; GET list/one, `/file` download, DELETE
+  removes row+file. DTOs in `app/schemas/{auth,patient,clinical_io,report}.py` (`from_attributes=True`).
+  Error conventions confirmed: 404 not-found vs 403 not-owned (cross-user tested), 409 conflict.
+  New deps: bcrypt, pyjwt, python-multipart, email-validator. New config: SECRET_KEY, JWT_ALGORITHM,
+  ACCESS_TOKEN_EXPIRE_MINUTES, UPLOAD_DIR. `uploads/` gitignored. 17 API paths live; ruff clean;
+  `alembic check` = no drift (symptoms/reports reuse existing tables). **Not committed** (left to user).
+  Next: Phase 4 (LangGraph pipeline + Memory).
 - **2026-06-29** — **Data Layer & Schema DONE** (roadmap Phase 2). Wrote SQLAlchemy 2.0 models for all
   16 tables under `app/models/` (grouped: `user, patient, clinical, intelligence, records, access` +
   `mixins.py` with `CreatedAtMixin`/`TimestampMixin`); `app/models/__init__.py` imports all (Alembic

@@ -16,6 +16,14 @@ class Settings(BaseSettings):
     CHROMA_HOST: str = "localhost"
     CHROMA_PORT: int = 8000
 
+    # Auth
+    SECRET_KEY: str = "dev-only-change-me-in-prod"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+
+    # File uploads (lab reports)
+    UPLOAD_DIR: str = "uploads"
+
 
 @lru_cache
 def get_settings() -> Settings:
