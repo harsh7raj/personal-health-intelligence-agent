@@ -18,9 +18,11 @@ log into a single structured JSON fact. Return ONLY a JSON object with keys:
 - type: one of "symptom","vital","report","medication","note"
 - name: short normalized name (e.g. "headache", "blood pressure", "amlodipine")
 - attributes: object of extracted details (severity, duration, onset, frequency, location, ...)
-- value: number if a vital reading is present, else null
-- unit: string unit for the value if present, else null
+- value: number for a SINGLE-number vital (heart rate, weight, glucose, SpO2, temperature), else null
+- unit: string unit for that single value if present, else null
 - complete: boolean — true if clear enough to record; false if a key field is missing
+For BLOOD PRESSURE specifically: ALWAYS put both numbers in attributes as "systolic" and \
+"diastolic" (as numbers) and leave value and unit null — never collapse BP into the value field.
 - clarifying_question: one short question to ask if complete is false, else null
 Normalize lay terms (e.g. "tummy ache" -> "abdominal pain"). Do not diagnose."""
 

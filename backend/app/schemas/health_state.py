@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-from app.schemas.enums import OutputType, ProblemStatus, Trend
+from app.schemas.enums import OutputType, ProblemStatus
 
 
 class Identity(BaseModel):
@@ -37,7 +37,7 @@ class ProblemView(BaseModel):
     name: str
     severity: Optional[str] = None
     frequency: Optional[str] = None
-    trend: Optional[Trend] = None
+    trend: Optional[str] = None  # free-form ('increasing'/'stable'/...) from reasoning
     status: ProblemStatus = ProblemStatus.active
     first_seen: Optional[datetime] = None
     last_seen: Optional[datetime] = None
@@ -51,7 +51,7 @@ class VitalSummaryItem(BaseModel):
     recent_avg: Optional[float] = None
     baseline_avg: Optional[float] = None
     delta_pct: Optional[float] = None
-    trend: Optional[Trend] = None
+    trend: Optional[str] = None
 
 
 class SymptomClusterItem(BaseModel):

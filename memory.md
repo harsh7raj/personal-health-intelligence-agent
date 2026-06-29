@@ -31,6 +31,7 @@ Where the two conflict, the resolutions below win (see Architectural Decisions).
 | Auth | JWT (OAuth2 password flow), `passlib[bcrypt]` |
 | PDF generation | ReportLab (deterministic template; doctor consultation summary) |
 | Frontend | React + Vite + TypeScript |
+| UI components / styling | **shadcn/ui + Tailwind CSS** (SETTLED 2026-06-30; copy-paste/editable components, good for an intentional capstone demo) |
 | Charts | Recharts |
 | Local infra | docker-compose (Postgres + Chroma) |
 | Pkg mgmt (backend) | `uv` (or pip + venv) |
@@ -99,6 +100,20 @@ Intake parsing now uses **Groq** via its **OpenAI-compatible API** (`openai` cli
 good enough for structured free-text→JSON parsing. This is a deliberate change from the original
 Claude-Haiku assumption in the frozen stack (superseded). **Scope:** Intake only — the Reasoning and
 Response agents' LLM is NOT decided yet (see OQ7); do not assume Groq there.
+
+### D8 — Reasoning + Response LLM: **Groq** (resolves OQ7, 2026-06-30)
+Reasoning observations and Response narrative both use **Groq** `llama-3.3-70b-versatile`
+(config `REASONING_MODEL`, `RESPONSE_MODEL`) — chosen for consistency with Intake (D7) and free tier;
+quality adequate for non-diagnostic observations. **Caveat:** the Response health-story (Phase 6) is the
+most quality-sensitive output; re-evaluate narrative quality there and swap provider only if it disappoints.
+No Anthropic calls anywhere yet.
+
+### Reasoning constants (resolved parked OQs, 2026-06-30; all config-driven, tunable)
+- **OQ2 → alert thresholds** (`ALERT_THRESHOLDS`): bp ≥140/≥90 → `high_bp` (≥180/≥120 → `critical_bp`);
+  glucose ≥200 → `high_glucose`, ≤70 → `low_glucose`; spo2 <92 → `low_spo2`; hr >100 → `tachycardia`,
+  <50 → `bradycardia`. Phrased as flags, never diagnoses.
+- **OQ3 → auto-resolve:** active problem `last_seen` older than **90 days** → `resolved` (`RESOLVE_AFTER_DAYS=90`).
+- **OQ5 → symptom clusters:** symptoms within **48h**, min 2 distinct → cluster (`CLUSTER_WINDOW_HOURS=48`).
 
 ---
 
@@ -243,10 +258,12 @@ reasoning_node → response_node
 response_node → END
 ```
 
-### LLM usage per node
-- `intake_node`: Haiku (parse). `memory_node`: none (embeddings only).
-- `reasoning_node`: Opus (observations only; trends/rules are pure Python).
-- `response_node`: Opus/Sonnet for story + friendly snapshot; PDF is deterministic template.
+### LLM usage per node (per D7/D8 — Groq, not Claude)
+- `intake_node`: **Groq** `INTAKE_MODEL` (parse). `memory_node`: none (embeddings only).
+- `reasoning_node`: **Groq** `REASONING_MODEL` (observations only; trends/rules are pure Python).
+- `response_node`: **Groq** `RESPONSE_MODEL` for the **health story** only. **Snapshot is a deterministic
+  template** (no LLM); **PDF is a deterministic ReportLab template** (no LLM). Story has a deterministic
+  fallback when Groq fails/no key.
 
 ---
 
@@ -280,13 +297,16 @@ Graph wired (§7) with `intake_node` (Groq parse + entries write + Chroma embed)
 reasoning/response stubbed. `/intake` + `/intake/answer` live. Chroma collections (§5) bootstrapped here.
 Verified with offline fallback parser; real Groq path pending user's `GROQ_API_KEY`. *Depends: 3.*
 
-### Phase 5 — Reasoning Engine
-`reasoning_node`: rolling-average trend math (D1), problem update/resolve rules, symptom clustering,
-missing-info checks, alerts on threshold crossings, LLM observations. Populates full state. *Depends: 4.*
+### Phase 5 — Reasoning Engine ✅ DONE (2026-06-30)
+`reasoning_node` + `app/services/*`: rolling-average trend math (D1), problem update/auto-resolve (OQ3),
+symptom clustering (OQ5), missing-info + suggested actions, threshold alerts (OQ2), Groq observations (D8).
+Verified end-to-end via `/intake`; BP parsing hardened (prompt + regex recovery). *Depends: 4.*
 
-### Phase 6 — Response + Outputs
-`response_node` branch: snapshot endpoint, health story (LLM narrative), consultation PDF (ReportLab),
-alerts retrieve/ack. Deterministic fallbacks for LLM failures. *Depends: 5.*
+### Phase 6 — Response + Outputs ✅ DONE (2026-06-30)
+Shared `assemble_state` backbone → snapshot (deterministic), health story (Groq + fallback), consultation
+PDF (ReportLab), alerts retrieve/ack, doctor token `/shared/*`, §6 state reads. Observations deduped.
+All outputs consistent (one assembler). Verified end-to-end. Outputs are on-demand REST; `response_node`
+stays a stub. *Depends: 5.*
 
 ### Phase 7 — Frontend (React)
 Vite+TS dashboard: auth, entry forms (symptoms/vitals/reports/meds), snapshot view, health story page,
@@ -303,6 +323,40 @@ non-diagnostic-language audit, viva walkthrough script. *Depends: 7.*
 
 ## 9. Work Log (newest first)
 
+- **2026-06-30** — **Response + Outputs DONE** (roadmap Phase 6). Backbone:
+  `app/services/state_assembler.py::assemble_state()` (one assembled `PatientHealthState` from Postgres)
+  — snapshot, story, PDF, and `/shared/*` ALL read it, so they can't drift. `dedupe_observations`
+  (Jaccard ≥0.6, cap 5) + `derive_recent_changes` live here and feed snapshot AND story. Built:
+  `services/{snapshot,story,pdf_report}.py`; routes `outputs.py` (snapshot/story/consultation-pdf/problems/
+  observations), `alerts.py` (list + ack), `doctor_access.py` (mint/list/revoke tokens),
+  `shared.py` (token-gated `/shared/{token}/snapshot|story|consultation/pdf`); `deps.get_patient_by_token`.
+  Story = Groq `RESPONSE_MODEL` with deterministic fallback (forced-outage test → `generated_by:fallback`,
+  still 200). Snapshot + PDF are LLM-free. `vitals/summary` added to vitals.py *before* `/{vital_id}` to
+  avoid path collision. `response_node` stays a stub (outputs are on-demand REST, matching the diagram).
+  **Verified (carol, pid 2, real Groq):** snapshot obs deduped 28→5; recent_changes show BP +17%/+14%;
+  story flows as prose (not repetitive); PDF `%PDF-1.4` 3119B; alert ack flips; doctor `/shared` snapshot
+  **byte-identical** to patient snapshot; invalid/revoked token → 403. ruff clean; alembic no drift
+  (no schema change). New dep: reportlab. **D8 caveat resolved:** Groq narrative quality is adequate —
+  no provider swap needed. Not committed (left to user). **Backend feature-complete; next: Phase 7 frontend.**
+  Minor: dedup still lets ~2 near-dupes through at 0.6 threshold — could lower if needed (cap is 5 anyway).
+  Route-registration note: `create_app()` includes all routers **unconditionally** (no env/state gating; no
+  circular import) and uvicorn serves all 32 routes (verified by live 200s) — a transient `len(app.routes)==4`
+  seen only via throwaway `python -c` imports was a module-state measurement artifact, never the real runtime.
+- **2026-06-30** — **Reasoning Engine DONE** (roadmap Phase 5). `reasoning_node` now real; services in
+  `app/services/{vitals_trend,alerts,problems,clusters,missing_info,observations}.py`. Implements:
+  vital extraction→`vital_readings`→rolling-avg `vital_summary` (D1); threshold `alerts` (OQ2);
+  active/resolved `problems` (match→episode_count++/trend, new→create, auto-resolve >90d=OQ3);
+  `symptom_clusters` (48h window=OQ5); `missing_information` + `suggested_actions` (gap rules, dedup);
+  LLM `observations` (Groq REASONING_MODEL, strictly non-diagnostic, skipped if no key). Reasoning owns
+  `vital_readings`+`vital_summary` for the graph path (entries[type=vital]→readings; reads ALL readings of
+  a type so CRUD vitals are included). Verified via `/intake` (real Groq): BP trend rising (5 readings),
+  headache episode_count=3/increasing, headache+nausea cluster, high_bp alerts, auto-resolve of a 120-day-old
+  problem, non-diagnostic observations, missing-BP gap + suggested action. **Bug found & fixed:** Groq
+  inconsistently parsed BP — sometimes only systolic in `value`, diastolic dropped; hardened intake prompt
+  (BP→always systolic+diastolic in attributes) AND `extract_readings` (regex-recovers both numbers from
+  raw_text, never emits a junk `blood_pressure` series). No schema change/migration. Not committed (left to
+  user). Next: Phase 6 (Response + outputs) — also re-evaluate Response narrative quality (D8 caveat).
+  Note: observations accumulate ~1-3 per run and can get repetitive — consider dedup/limit in Phase 6.
 - **2026-06-30** — **LangGraph pipeline + Memory DONE** (roadmap Phase 4). First AI/vector work.
   **Chroma:** `app/vectorstore/collections.py` bootstraps both collections (`patient_entries`,
   `patient_reports`) with DefaultEmbeddingFunction (all-MiniLM-L6-v2 ONNX); metadata schemas verified to
@@ -372,19 +426,15 @@ non-diagnostic-language audit, viva walkthrough script. *Depends: 7.*
 
 ## 10. Open Questions (unresolved — revisit before relevant phase)
 
-- **OQ7 (pre Phase 5/6):** Reasoning & Response agents' LLM provider/model is undecided. Groq (D7) is
-  Intake-only. Options to weigh: Groq (same free stack) vs Claude Opus (original plan, better narrative)
-  vs mixed. Decide when building Reasoning (observations) and Response (health story/PDF).
+- **OQ7 — RESOLVED 2026-06-30 (D8):** Reasoning + Response use Groq `llama-3.3-70b-versatile`. Response
+  narrative quality to be re-evaluated in Phase 6 (swap only if it disappoints).
 - **OQ1 (pre Phase 4):** Two-tier retrieval (recent verbatim + pre-summarized older history) is a
   future upgrade over D2's bounded pull. Only build if context size becomes a real problem.
-- **OQ2 (pre Phase 5):** Exact alert thresholds per vital (what BP/glucose/SpO₂ values flip an alert).
-  Needs sane clinical-ish constants in config; not yet defined.
-- **OQ3 (pre Phase 5):** "Resolved after X months quiescent" — set X (default proposal: 3 months
-  no occurrence → auto-resolve). Confirm before coding the resolve rule.
+- **OQ2 — RESOLVED 2026-06-30:** alert thresholds defined (see "Reasoning constants" in §2 / `ALERT_THRESHOLDS`).
+- **OQ3 — RESOLVED 2026-06-30:** auto-resolve window = 90 days (`RESOLVE_AFTER_DAYS`).
 - **OQ4 — RESOLVED 2026-06-29:** Doctor access = patient-issued, time-limited read tokens
   (`doctor_access` table, default 7-day expiry, revocable). Doctor visits `/shared/{token}/...`,
   gets READ-ONLY access to snapshot/story/PDF only — never CRUD/writes/raw data. No doctor login.
-- **OQ5 (pre Phase 4):** Symptom-cluster definition — what time window counts as "co-occurring"
-  (default proposal: symptoms logged within 48h grouped). Confirm.
+- **OQ5 — RESOLVED 2026-06-30:** symptom-cluster window = 48h, min 2 distinct (`CLUSTER_WINDOW_HOURS`).
 - **OQ6 (pre Phase 1):** Confirm Claude model IDs + embedding model availability against `claude-api`
   skill before first LLM/embedding call.

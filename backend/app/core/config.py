@@ -33,6 +33,15 @@ class Settings(BaseSettings):
     MEMORY_TOPK: int = 5
     RECENT_WINDOW_DAYS: int = 180
 
+    # Reasoning + Response LLM (Groq, D8)
+    REASONING_MODEL: str = "llama-3.3-70b-versatile"
+    RESPONSE_MODEL: str = "llama-3.3-70b-versatile"
+
+    # Reasoning constants (OQ2/3/5)
+    RESOLVE_AFTER_DAYS: int = 90
+    CLUSTER_WINDOW_HOURS: int = 48
+    MISSING_BP_DAYS: int = 60
+
 
 @lru_cache
 def get_settings() -> Settings:

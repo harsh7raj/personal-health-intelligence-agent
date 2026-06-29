@@ -1,12 +1,15 @@
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.security import decode_token
 from app.db.session import get_db
+from app.models.access import DoctorAccess
 from app.models.patient import Patient
 from app.models.user import User
 
@@ -57,3 +60,23 @@ def get_owned_patient(
 
 
 OwnedPatient = Annotated[Patient, Depends(get_owned_patient)]
+
+
+def get_patient_by_token(token: str, db: DbSession) -> Patient:
+    """Doctor access: resolve a /shared/{token} URL to its patient (read-only)."""
+    da = db.scalar(select(DoctorAccess).where(DoctorAccess.token == token))
+    now = datetime.now(timezone.utc)
+    if da is None or da.revoked or (da.expires_at and da.expires_at < now):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid or expired access token",
+        )
+    patient = db.get(Patient, da.patient_id)
+    if patient is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid access token"
+        )
+    return patient
+
+
+TokenPatient = Annotated[Patient, Depends(get_patient_by_token)]

@@ -18,5 +18,8 @@ class GraphState(BaseModel):
     # set by memory_node
     context_bundle: Optional[dict[str, Any]] = None
 
+    # set by reasoning_node
+    reasoning_summary: Optional[dict[str, Any]] = None
+
     # set by response_node (Phase 6)
     output_type: Optional[str] = None

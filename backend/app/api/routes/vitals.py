@@ -5,8 +5,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import DbSession, OwnedPatient
-from app.models.clinical import VitalReading
+from app.models.clinical import VitalReading, VitalSummary
 from app.schemas.clinical_io import VitalCreate, VitalOut
+from app.schemas.outputs import VitalSummaryOut
 
 router = APIRouter(prefix="/patients", tags=["vitals"])
 
@@ -45,6 +46,16 @@ def list_vitals(patient: OwnedPatient, db: DbSession) -> list[VitalReading]:
             select(VitalReading)
             .where(VitalReading.patient_id == patient.id)
             .order_by(VitalReading.recorded_at)
+        ).all()
+    )
+
+
+# Declared before /{vital_id} so the literal "summary" matches first.
+@router.get("/{patient_id}/vitals/summary", response_model=list[VitalSummaryOut])
+def vitals_summary(patient: OwnedPatient, db: DbSession) -> list[VitalSummary]:
+    return list(
+        db.scalars(
+            select(VitalSummary).where(VitalSummary.patient_id == patient.id)
         ).all()
     )
 
