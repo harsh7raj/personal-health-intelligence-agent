@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -6,6 +7,7 @@ from app.api.routes import (
     auth,
     background,
     health,
+    intake,
     medications,
     patients,
     reports,
@@ -13,11 +15,18 @@ from app.api.routes import (
     vitals,
 )
 from app.core.config import get_settings
+from app.vectorstore.collections import bootstrap_collections
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Engine is created at import; Chroma client is lazily cached on first use.
+    # Engine is created at import; warm the Chroma collections (best-effort).
+    try:
+        bootstrap_collections()
+    except Exception:
+        logger.warning("Chroma collection bootstrap failed at startup", exc_info=True)
     yield
 
 
@@ -36,6 +45,7 @@ def create_app() -> FastAPI:
     app.include_router(vitals.router, prefix=settings.API_PREFIX)
     app.include_router(symptoms.router, prefix=settings.API_PREFIX)
     app.include_router(reports.router, prefix=settings.API_PREFIX)
+    app.include_router(intake.router, prefix=settings.API_PREFIX)
     return app
 
 

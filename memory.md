@@ -25,9 +25,9 @@ Where the two conflict, the resolutions below win (see Architectural Decisions).
 | ORM / migrations | SQLAlchemy 2.x + Alembic |
 | Vector store | ChromaDB |
 | Embeddings | Chroma default local model `all-MiniLM-L6-v2` (sentence-transformers) — no API cost |
-| LLM provider | **Anthropic Claude** (latest models) |
-| — Reasoning/Narrative LLM | `claude-opus-4-8` (observations, health story) |
-| — Intake parsing LLM | `claude-haiku-4-5-20251001` (cheap free-text → structured) |
+| LLM provider | **Mixed** — Groq for Intake (see D7); Reasoning/Response provider OPEN (OQ7) |
+| — Reasoning/Narrative LLM | OPEN — revisit Phase 5/6 (was assumed `claude-opus-4-8`; not committed) |
+| — Intake parsing LLM | **Groq** (OpenAI-compatible API) `llama-3.3-70b-versatile` — was ~~`claude-haiku-4-5`~~, see D7 |
 | Auth | JWT (OAuth2 password flow), `passlib[bcrypt]` |
 | PDF generation | ReportLab (deterministic template; doctor consultation summary) |
 | Frontend | React + Vite + TypeScript |
@@ -91,6 +91,14 @@ The diagram's data-flow labels are authoritative for who writes what:
 All tables use integer surrogate PKs, not UUIDs. Not deployed publicly, so enumerable IDs are a
 non-issue; doctors never see patient IDs (they use the random `doctor_access.token`). Closed — not an
 open question.
+
+### D7 — Intake LLM: **Groq (free tier)**, swapped from Claude Haiku (CHANGED 2026-06-30)
+Intake parsing now uses **Groq** via its **OpenAI-compatible API** (`openai` client pointed at
+`GROQ_BASE_URL=https://api.groq.com/openai/v1`), model `llama-3.3-70b-versatile` (config `INTAKE_MODEL`;
+`llama-3.1-8b-instant` is the faster alt). Key env var: `GROQ_API_KEY`. **Reason:** free, very fast, and
+good enough for structured free-text→JSON parsing. This is a deliberate change from the original
+Claude-Haiku assumption in the frozen stack (superseded). **Scope:** Intake only — the Reasoning and
+Response agents' LLM is NOT decided yet (see OQ7); do not assume Groq there.
 
 ---
 
@@ -266,10 +274,11 @@ JWT auth (register/login/me); patient profile + background/history; CRUD for med
 symptoms (→entries), reports (multipart upload). Persistence only, no pipeline. Ownership-guarded,
 verified group-by-group against live DB. *Depends: 2.*
 
-### Phase 4 — LangGraph Pipeline + Memory
-Wire the graph (§7) with `intake_node` (parse + Chroma write + entries write) and `memory_node`
-(retrieval + `memory_log` write); clarify branch (interrupt/resume); state plumbing. Reasoning/Response
-are pass-through stubs here. Ingestion endpoints now invoke the graph. *Depends: 3.*
+### Phase 4 — LangGraph Pipeline + Memory ✅ DONE (2026-06-30)
+Graph wired (§7) with `intake_node` (Groq parse + entries write + Chroma embed) and `memory_node`
+(top-k retrieval + bounded Postgres + `memory_log` write); clarify branch via stateless re-invoke;
+reasoning/response stubbed. `/intake` + `/intake/answer` live. Chroma collections (§5) bootstrapped here.
+Verified with offline fallback parser; real Groq path pending user's `GROQ_API_KEY`. *Depends: 3.*
 
 ### Phase 5 — Reasoning Engine
 `reasoning_node`: rolling-average trend math (D1), problem update/resolve rules, symptom clustering,
@@ -294,6 +303,22 @@ non-diagnostic-language audit, viva walkthrough script. *Depends: 7.*
 
 ## 9. Work Log (newest first)
 
+- **2026-06-30** — **LangGraph pipeline + Memory DONE** (roadmap Phase 4). First AI/vector work.
+  **Chroma:** `app/vectorstore/collections.py` bootstraps both collections (`patient_entries`,
+  `patient_reports`) with DefaultEmbeddingFunction (all-MiniLM-L6-v2 ONNX); metadata schemas verified to
+  match §5; warmed in `main.py` lifespan. **Graph:** `app/graph/{state,graph}.py` + `nodes/` — StateGraph
+  `START→intake→(clarify|memory)→reasoning→response→END` (reasoning/response are pass-through stubs).
+  **Intake** (`nodes/intake.py`): parse via Groq (`app/core/llm.py`, openai client → GROQ_BASE_URL,
+  JSON mode); on `complete` writes `entries` row + `patient_entries` embedding + sets `new_entry`;
+  on incomplete routes to clarify (writes nothing). Swappable `parse_entry` with a deterministic fallback
+  when `GROQ_API_KEY` unset. **Memory** (`nodes/memory.py`): Chroma top-k=5 (self-excluded via `entry_id $ne`)
+  + bounded Postgres (active problems, vital_summary, active meds, entries < RECENT_WINDOW_DAYS) →
+  `context_bundle`; writes `memory_log` audit. **Endpoints:** `POST /patients/{id}/intake` +
+  `/intake/answer` (clarify resume = **stateless re-invoke**, recombines text). **Verified** (fallback
+  parser, no key yet): intake→entries+chroma+memory_log, semantic retrieval w/ self-exclusion (dist 0.53),
+  clarify routes & writes nothing, cross-user 403, ruff clean. **PENDING user's `GROQ_API_KEY`** to verify
+  real LLM parsing + LLM-authored clarify questions. New deps: langgraph, openai. Not committed (left to user).
+  Next: Phase 5 (Reasoning Engine) — also resolve OQ7 (Reasoning/Response LLM).
 - **2026-06-29** — **Auth & Core CRUD DONE** (roadmap Phase 3, persistence only — no LangGraph/AI).
   Built + verified one group at a time (real request→DB→response):
   **A) Auth** — `core/security.py` (bcrypt hashing + pyjwt HS256), `api/deps.py`
@@ -347,6 +372,9 @@ non-diagnostic-language audit, viva walkthrough script. *Depends: 7.*
 
 ## 10. Open Questions (unresolved — revisit before relevant phase)
 
+- **OQ7 (pre Phase 5/6):** Reasoning & Response agents' LLM provider/model is undecided. Groq (D7) is
+  Intake-only. Options to weigh: Groq (same free stack) vs Claude Opus (original plan, better narrative)
+  vs mixed. Decide when building Reasoning (observations) and Response (health story/PDF).
 - **OQ1 (pre Phase 4):** Two-tier retrieval (recent verbatim + pre-summarized older history) is a
   future upgrade over D2's bounded pull. Only build if context size becomes a real problem.
 - **OQ2 (pre Phase 5):** Exact alert thresholds per vital (what BP/glucose/SpO₂ values flip an alert).
