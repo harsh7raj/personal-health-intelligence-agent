@@ -87,6 +87,11 @@ The diagram's data-flow labels are authoritative for who writes what:
 - **Deterministic Python:** all DB writes, trend math, problem-update rules, missing-info checks,
   output templating, PDF. Memory retrieval is embedding similarity (no generation).
 
+### D6 — Primary keys: **integer `BigInteger` autoincrement** (SETTLED 2026-06-29)
+All tables use integer surrogate PKs, not UUIDs. Not deployed publicly, so enumerable IDs are a
+non-issue; doctors never see patient IDs (they use the random `doctor_access.token`). Closed — not an
+open question.
+
 ---
 
 ## 3. PatientHealthState (Pydantic, in-memory shared state)
@@ -250,9 +255,11 @@ FastAPI app factory, settings, DB session (SQLAlchemy), Chroma client wrapper, `
 (real both-store readiness probe), Alembic wired to `Base.metadata`. App boots and connects to both
 stores; verified end-to-end. *Depends: 0.*
 
-### Phase 2 — Data Layer & Schema
-All SQLAlchemy models (§4) + first Alembic migration; Pydantic `PatientHealthState` + sub-models (§3);
-Chroma collections bootstrap (§5). *Depends: 1.*
+### Phase 2 — Data Layer & Schema ✅ DONE (2026-06-29)
+All 16 SQLAlchemy models (§4) + first Alembic migration `b7b529cb8dea` (applied, verified, no drift);
+Pydantic `PatientHealthState` + sub-models (§3). *Depends: 1.*
+**Note:** Chroma collections (§5) bootstrap deferred to the unit that first writes embeddings (Phase 4),
+not done here — Phase 2 was Postgres-side only.
 
 ### Phase 3 — Auth & Core CRUD
 JWT auth (register/login/me, roles); patient profile + background; CRUD for symptoms, vitals, reports
@@ -286,6 +293,17 @@ non-diagnostic-language audit, viva walkthrough script. *Depends: 7.*
 
 ## 9. Work Log (newest first)
 
+- **2026-06-29** — **Data Layer & Schema DONE** (roadmap Phase 2). Wrote SQLAlchemy 2.0 models for all
+  16 tables under `app/models/` (grouped: `user, patient, clinical, intelligence, records, access` +
+  `mixins.py` with `CreatedAtMixin`/`TimestampMixin`); `app/models/__init__.py` imports all (Alembic
+  picks them up). Built Pydantic `PatientHealthState` + sub-models in `app/schemas/{enums,health_state}.py`
+  (LangGraph state, validates empty). Conventions: integer BigInteger PKs, `patient_id` FK `ondelete=CASCADE`,
+  string enums (not native PG enums), hybrid JSONB `attributes`. `problems` = single status-discriminated
+  table (CHECK `active|managed|resolved`, composite index `ix_problems_patient_status`). Generated +
+  applied first migration `b7b529cb8dea_initial_schema`. Verified: 16 tables live in Postgres,
+  `\d problems` shows status/check/index, `alembic check` → "No new upgrade operations" (no model↔DB drift),
+  ruff clean. Fixed one bug pre-migration: column named `text` shadowed `sqlalchemy.text` in
+  `intelligence.py` → aliased import to `sa_text`. Not committed (left to user). Next: Phase 3 (Auth & CRUD).
 - **2026-06-29** — **Backend Skeleton DONE** (roadmap Phase 0 + Phase 1). Built `backend/`:
   `pyproject.toml` (uv), `docker-compose.yml` (postgres:16 + chromadb/chroma), `.env(.example)`,
   Alembic wired to `Base.metadata`, FastAPI app (`app.main:app`) with `core/config.py`,
