@@ -31,8 +31,10 @@ Where the two conflict, the resolutions below win (see Architectural Decisions).
 | Auth | JWT (OAuth2 password flow), `passlib[bcrypt]` |
 | PDF generation | ReportLab (deterministic template; doctor consultation summary) |
 | Frontend | React + Vite + TypeScript |
-| UI components / styling | **shadcn/ui + Tailwind CSS** (SETTLED 2026-06-30; copy-paste/editable components, good for an intentional capstone demo) |
+| UI components / styling | **shadcn/ui-style + Tailwind CSS** (SETTLED 2026-06-30; hand-written lean primitives in `src/components/ui.tsx`, not the CLI) |
 | Charts | Recharts |
+| Frontend data layer | **TanStack Query** (server state) + **axios** (`src/lib/api.ts`, JWT interceptor) + **react-router-dom** |
+| Frontend E2E (dev) | **Playwright** (chromium) — used to verify each phase with screenshots |
 | Local infra | docker-compose (Postgres + Chroma) |
 | Pkg mgmt (backend) | `uv` (or pip + venv) |
 
@@ -114,6 +116,17 @@ No Anthropic calls anywhere yet.
   <50 → `bradycardia`. Phrased as flags, never diagnoses.
 - **OQ3 → auto-resolve:** active problem `last_seen` older than **90 days** → `resolved` (`RESOLVE_AFTER_DAYS=90`).
 - **OQ5 → symptom clusters:** symptoms within **48h**, min 2 distinct → cluster (`CLUSTER_WINDOW_HOURS=48`).
+
+### D9 — `GET /patients/me` for patient-id resolution (SETTLED 2026-06-30, Phase 7)
+`/auth/me` returns the user, but every `/patients/{id}/*` route needs the **patient id**. `GET /patients/me`
+returns the current user's `Patient` (**404** if none → frontend routes to onboarding). Declared before
+`/{patient_id}` so the literal "me" wins. Chosen over embedding patient in `/auth/me` (cleaner REST, keeps
+user/patient concerns separate).
+
+### D10 — CORS via FastAPI `CORSMiddleware` (SETTLED 2026-06-30, Phase 7)
+Backend enables `CORSMiddleware` with origins from `CORS_ORIGINS` (default `http://localhost:5173,5174`).
+Dev primarily uses the **Vite proxy** (`/api`→:8001, same-origin, no CORS needed), but CORS is on as
+belt-and-suspenders so the API also works cross-origin / unproxied. `allow_credentials=True`, all methods/headers.
 
 ---
 
@@ -308,9 +321,10 @@ PDF (ReportLab), alerts retrieve/ack, doctor token `/shared/*`, §6 state reads.
 All outputs consistent (one assembler). Verified end-to-end. Outputs are on-demand REST; `response_node`
 stays a stub. *Depends: 5.*
 
-### Phase 7 — Frontend (React)
-Vite+TS dashboard: auth, entry forms (symptoms/vitals/reports/meds), snapshot view, health story page,
-vitals charts (Recharts), alerts panel, doctor PDF download. *Depends: 6 (API contracts stable).*
+### Phase 7 — Frontend (React) ✅ DONE (2026-06-30)
+Vite+TS+Tailwind SPA: auth+onboarding, intake+forms, dashboard snapshot+alerts, vitals charts (Recharts),
+story (+fallback badge), doctor sharing (token + DoctorView + PDF). Real backend (Vite proxy), no mocks.
+Added backend `GET /patients/me` + CORS. Verified per-group via Playwright screenshots. *Depends: 6.*
 
 ### Phase 8 — Integration, Hardening, Demo
 Node-level error handling + LangGraph retries, seed/demo data, end-to-end test of full pipeline,
@@ -323,6 +337,20 @@ non-diagnostic-language audit, viva walkthrough script. *Depends: 7.*
 
 ## 9. Work Log (newest first)
 
+- **2026-06-30** — **Frontend DONE** (roadmap Phase 7). React+Vite+TS SPA in `frontend/`, talks to the
+  REAL backend (Vite proxy `/api`→:8001), no mocks. Auth: JWT in localStorage, axios interceptors
+  (attach token / 401→logout), `AuthProvider` resolves user + patient via `/auth/me` + `/patients/me`,
+  onboarding if no profile. Pages: Login/Register/Onboarding/Dashboard(snapshot+alerts+ack)/Log(intake
+  free-text + clarify + vital/medication/report forms)/Vitals(Recharts: BP dual-line from `vital_readings`
+  + trend badges from `vital_summary`)/Story(Groq narrative + **fallback badge** when generated_by=fallback)
+  /Share(doctor-access token mint/list/revoke + PDF blob download)/DoctorView(`/shared/:token`, public,
+  reuses `SnapshotView`). **2 small backend additions:** `GET /patients/me` (resolve patient id; 404 drives
+  onboarding) + CORSMiddleware (`CORS_ORIGINS`). Verified end-to-end with **Playwright + screenshots** for
+  every group A–F (login→dashboard, alerts ack 7→6, intake→Logged✓ full pipeline, BP chart rising,
+  story prose, share→doctor-view shows same data + PDF); 0 console errors; `npm run build` (tsc) clean.
+  Backend now 33 routes. Not committed (left to user). Frontend `.env`/`node_modules`/`dist` gitignored.
+  **All 7 build phases complete; next: Phase 8 (integration/hardening/demo prep).**
+  Note: intake UI calls take ~10-20s (full Groq pipeline) — fine, button shows "Sending…".
 - **2026-06-30** — **Response + Outputs DONE** (roadmap Phase 6). Backbone:
   `app/services/state_assembler.py::assemble_state()` (one assembled `PatientHealthState` from Postgres)
   — snapshot, story, PDF, and `/shared/*` ALL read it, so they can't drift. `dedupe_observations`

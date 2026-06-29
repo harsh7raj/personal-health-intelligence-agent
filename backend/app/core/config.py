@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     API_PREFIX: str = "/api"
 
+    # CORS — comma-separated allowed origins (frontend dev server)
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:5174"
+
     DATABASE_URL: str = "postgresql+psycopg://phia:phia@localhost:5432/phia"
 
     CHROMA_HOST: str = "localhost"

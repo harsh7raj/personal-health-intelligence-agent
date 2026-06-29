@@ -25,6 +25,18 @@ def create_patient(
     return patient
 
 
+# Declared before /{patient_id} so the literal "me" matches first.
+@router.get("/me", response_model=PatientOut)
+def get_my_patient(current_user: CurrentUser, db: DbSession) -> Patient:
+    patient = db.scalar(select(Patient).where(Patient.user_id == current_user.id))
+    if patient is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No patient profile for this user",
+        )
+    return patient
+
+
 @router.get("/{patient_id}", response_model=PatientOut)
 def get_patient(patient: OwnedPatient) -> Patient:
     return patient
