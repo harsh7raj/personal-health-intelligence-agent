@@ -9,6 +9,8 @@ import LogPage from "@/pages/LogPage"
 import VitalsPage from "@/pages/VitalsPage"
 import StoryPage from "@/pages/StoryPage"
 import SharePage from "@/pages/SharePage"
+import MedicationsPage from "@/pages/MedicationsPage"
+import ReportsPage from "@/pages/ReportsPage"
 import DoctorViewPage from "@/pages/DoctorViewPage"
 
 function ProtectedLayout() {
@@ -35,6 +37,8 @@ export const router = createBrowserRouter([
       { path: "/log", element: <LogPage /> },
       { path: "/vitals", element: <VitalsPage /> },
       { path: "/story", element: <StoryPage /> },
+      { path: "/medications", element: <MedicationsPage /> },
+      { path: "/reports", element: <ReportsPage /> },
       { path: "/share", element: <SharePage /> },
     ],
   },

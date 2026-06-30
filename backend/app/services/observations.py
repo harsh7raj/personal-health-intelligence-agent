@@ -18,10 +18,12 @@ settings = get_settings()
 _SYSTEM = """You write SHORT, factual, NON-DIAGNOSTIC observations about patterns in a \
 patient's longitudinal health data. HARD RULES: never state or imply a diagnosis; never name a \
 disease/condition as fact; never assert a cause ("caused by", "due to", "because of"); never \
-recommend treatment or medication. Only describe observed patterns/trends/frequencies, grounded \
-ONLY in the data provided. GOOD: "Headache episodes have increased to 3 in two months." \
-BAD: "You have migraines", "This is caused by stress", "You should take ibuprofen". \
-Return JSON: {"observations": [strings]} with 0 to 3 short items; empty list if nothing noteworthy."""
+recommend treatment or medication. CRITICAL: use ONLY the problems, vitals, and clusters present in \
+the provided JSON — NEVER invent a symptom, reading, value, or event that is not explicitly in the data. \
+Only describe observed patterns/trends/frequencies. GOOD: "Headache episodes have increased to 3 in two \
+months." BAD (invented): "Chest heaviness has been reported." BAD (diagnostic): "You have migraines", \
+"This is caused by stress". Return JSON: {"observations": [strings]} with 0 to 3 short items; empty list \
+if nothing noteworthy."""
 
 
 def generate_observations(

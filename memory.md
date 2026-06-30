@@ -356,6 +356,29 @@ pytest suite vs `phia_test` (D11), non-diagnostic guard + audit (D12), loose-end
 
 ## 9. Work Log (newest first)
 
+- **2026-06-30** — **Post-Phase-8 refinement pass (content quality + UX).** Not committed.
+  **Story** (`services/story.py`): rewritten to 3 paragraphs (headline → connected reasoning → stable/missing),
+  enriched payload (conditions/resolved/missing), whitespace-normalized, still non-diagnostic.
+  **Consultation PDF** (`services/pdf_report.py`): redesigned as a real clinical handoff — teal header band,
+  **date-range**, **Reason-for-Review** callout (synthesized from rising vitals + increasing problems),
+  narrative lead, Active Problems with **frequency/spacing derived from entry dates** (`_problem_pattern`,
+  e.g. "6 episodes since Jan 2026, ≈ every 4 wks; more frequent recently"), **Current Medications** table,
+  Vital Trends, AI-Surfaced Patterns, **Prompts for Discussion** (suggested actions), Recent Alerts. Color-coded trends.
+  **Frontend redesign** (Dashboard milestone): left **sidebar** nav, dashboard **stat cards** + derived
+  **Health Timeline** + consistent severity/trend color coding (`lib/tone.ts`, `StatCard`, `Timeline`,
+  new `AppShell`), original **teal** palette + typographic hierarchy. New **Medications** + **Reports** pages.
+  **Routing bug FIXED:** `/medications` + `/reports` sidebar links fell through the catch-all to Dashboard
+  because their routes never existed → added the two pages + routes (+ report list/delete/download endpoints).
+  Verified by real click-through.
+  **Seed idempotency bug FIXED:** `User.patient` relationship → `passive_deletes=True` so re-running
+  `seed_demo` cascades the delete via the DB FK instead of nulling `patients.user_id` (re-seed previously failed).
+  **Hallucination grounding — status:** the earlier `"chest heaviness"` observation WAS a genuine fabrication
+  (no backing entry) → fixed by tightening the observations prompt (forbid inventing symptoms) + the runtime
+  language filter; re-seed produced grounded observations. **Verified honestly on 2026-06-30:** the later
+  observation `"Chest pain has been reported once, with a severity of 7"` is **NOT a hallucination** — it is
+  grounded in a real entry (id 43, `source=intake`, `attributes.severity=7`) logged via the live intake flow,
+  so the observation faithfully reflects actual data. Grounding fix holds.
+  **Still pending (next session):** Vitals individual chart cards + Story "Key Insights" panel (queued, not built).
 - **2026-06-30** — **Integration & Hardening DONE** (roadmap Phase 8 — final build phase; demo-ready).
   (1) **Resilience** (D13): `groq_client` timeout+retries; `intake.parse_entry` degrades to fallback on Groq
   failure; `/intake` route → clean 502 on pipeline error. (2) **Seed**: `scripts/seed_demo.py` (idempotent)

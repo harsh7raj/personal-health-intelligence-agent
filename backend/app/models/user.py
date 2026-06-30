@@ -21,4 +21,7 @@ class User(CreatedAtMixin, Base):
         String(32), nullable=False, default="patient", server_default="patient"
     )
 
-    patient: Mapped["Patient"] = relationship(back_populates="user", uselist=False)
+    # passive_deletes: rely on the DB FK ondelete=CASCADE (don't null the child).
+    patient: Mapped["Patient"] = relationship(
+        back_populates="user", uselist=False, passive_deletes=True
+    )

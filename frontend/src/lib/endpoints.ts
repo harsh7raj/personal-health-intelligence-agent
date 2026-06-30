@@ -100,6 +100,16 @@ export const deleteMedication = (id: number, mid: number) =>
   api.delete(`/patients/${id}/medications/${mid}`)
 export const listSymptoms = (id: number) =>
   api.get<Symptom[]>(`/patients/${id}/symptoms`).then((r) => r.data)
+export interface Report {
+  id: number
+  patient_id: number
+  filename: string
+  report_type: string | null
+  summary: string | null
+  created_at: string
+}
+export const listReports = (id: number) =>
+  api.get<Report[]>(`/patients/${id}/reports`).then((r) => r.data)
 export const uploadReport = (id: number, file: File, report_type?: string, summary?: string) => {
   const fd = new FormData()
   fd.append("file", file)
@@ -107,6 +117,10 @@ export const uploadReport = (id: number, file: File, report_type?: string, summa
   if (summary) fd.append("summary", summary)
   return api.post(`/patients/${id}/reports`, fd).then((r) => r.data)
 }
+export const deleteReport = (id: number, rid: number) =>
+  api.delete(`/patients/${id}/reports/${rid}`)
+export const fetchReportBlob = (id: number, rid: number) =>
+  api.get(`/patients/${id}/reports/${rid}/file`, { responseType: "blob" }).then((r) => r.data as Blob)
 
 // ---------- Outputs ----------
 export const getSnapshot = (id: number) =>
