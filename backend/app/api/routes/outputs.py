@@ -15,8 +15,12 @@ router = APIRouter(prefix="/patients", tags=["outputs"])
 
 
 @router.get("/{patient_id}/snapshot", response_model=SnapshotOut)
-def snapshot(patient: OwnedPatient, db: DbSession) -> dict:
-    return build_snapshot(db, patient.id)
+def snapshot(
+    patient: OwnedPatient,
+    db: DbSession,
+    obs_limit: int = Query(5, ge=1, le=20),
+) -> dict:
+    return build_snapshot(db, patient.id, obs_limit=obs_limit)
 
 
 @router.get("/{patient_id}/story", response_model=StoryOut)

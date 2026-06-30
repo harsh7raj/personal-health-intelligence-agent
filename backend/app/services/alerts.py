@@ -4,6 +4,18 @@ from sqlalchemy.orm import Session
 
 from app.models.intelligence import Alert
 
+# Human-readable description of the rule behind each alert kind (for the
+# "why did this fire" expand). Mirrors the thresholds in check_vital_alert / OQ2.
+THRESHOLD_DESCRIPTIONS: dict[str, str] = {
+    "critical_bp": "Systolic ≥ 180 or diastolic ≥ 120 mmHg",
+    "high_bp": "Systolic ≥ 140 or diastolic ≥ 90 mmHg",
+    "high_glucose": "Blood glucose ≥ 200 mg/dL",
+    "low_glucose": "Blood glucose ≤ 70 mg/dL",
+    "low_spo2": "SpO₂ < 92%",
+    "tachycardia": "Heart rate > 100 bpm",
+    "bradycardia": "Heart rate < 50 bpm",
+}
+
 
 def check_vital_alert(vital_type: str, value: float) -> tuple[str, str, str] | None:
     """Return (kind, severity, message) if a threshold is crossed, else None."""

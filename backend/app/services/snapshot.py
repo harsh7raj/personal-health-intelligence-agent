@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 from app.services.state_assembler import assemble_state, derive_recent_changes
 
 
-def build_snapshot(db: Session, patient_id: int) -> dict:
-    state = assemble_state(db, patient_id)
+def build_snapshot(db: Session, patient_id: int, obs_limit: int = 5) -> dict:
+    state = assemble_state(db, patient_id, obs_limit=obs_limit)
     return {
         "patient_id": patient_id,
         "active_problems": [

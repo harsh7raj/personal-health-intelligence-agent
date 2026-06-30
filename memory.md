@@ -356,6 +356,88 @@ pytest suite vs `phia_test` (D11), non-diagnostic guard + audit (D12), loose-end
 
 ## 9. Work Log (newest first)
 
+- **2026-06-30** — **Parts 2 & 3: denser seed + re-verify.** Not committed. **Verified live.**
+  **Part 2 — `scripts/seed_demo.py` rewritten** for a high-density ~1-year record (idempotent, same
+  `demo@phia.health` login): **74 vital readings** (BP every ~2 wks, weight + **blood_glucose** monthly),
+  **20 symptom entries** (migraine now **×12**, increasing cadence; fatigue ×3 clustered; strep ×2 early).
+  Arc preserved + **2 new threads**: **lower back pain** (resolved, 3 episodes, alias `back pain`) and
+  **elevated blood glucose** (emerging/active, `trend=rising`, evidenced by its own rising glucose series via
+  `attributes.vital_types=["blood_glucose"]` — exercises the sub-timeline reading-linkage, NOT symptom
+  entries). All 5 problems carry `aliases`/`vital_types`. **Gotcha fixed:** a smooth dense BP ramp made the
+  D1 rolling-avg (last-3 vs prior-3) read *stable* (Δ~1%); gave BP a steeper **recent tail** (133→147 / 83→92
+  over last 6 readings) so it reads **rising** (sys +5.9%, dia +6.7%) + fires high_bp alerts. Glucose rising
+  +8.7%, weight stable. Observations are 6 canned **factual/non-diagnostic** lines (LLM branch dropped from
+  seed for determinism); `audit_language` = 0 violations. `ruff` + `pytest` 12 passed.
+  **Part 3 — re-verified against the dense data (live + Playwright, 0 console errors):** sub-timelines —
+  migraine **13 pts** (12 episodes + trend marker), lower back pain 3 ep + trend + resolved, elevated blood
+  glucose **11 reading pts + first_seen**, strep 2 ep + resolved, vitamin D 1 milestone. Dashboard (Tracked
+  Problems lists all 5, stat cards/alerts correct), **story** (real LLM, references 12 migraines + BP/glucose
+  trends) and **PDF** (valid, 5979 B) all hold up — nothing assumed the old sparse shape. **Note:** re-seed
+  changes the patient id (now 6); frontend resolves via `/patients/me` so unaffected.
+- **2026-06-30** — **Part 1: Per-problem sub-timeline.** Not committed. **Verified live (current data).**
+  New `GET /patients/{id}/problems/{problem_id}/timeline` (`services/problem_timeline.py`, route in
+  `routes/timeline.py`, schemas `ProblemTimeline*` in `outputs.py`) assembles ONE problem's chronological
+  evidence from PRIMARY data: matched symptom **entries** (linked by normalized `structured.name` ==
+  problem name **OR `attributes.aliases`** — needed because the seed named the problem "strep throat" but
+  the parsed entry is "sore throat"; added alias to the live strep row), any **vital_readings** for
+  vital-linked problems (name→vital_type map + `attributes.vital_types` override), a **derived
+  `trend_change`** marker at the 3rd episode (same rule as `problems.upsert`: count≥3→increasing), and
+  `first_seen`/`resolved` milestones. **Design decision (per user q):** standalone **observations are NOT
+  attached** to the sub-timeline — they're present-tense whole-history syntheses generated "now", so pinning
+  them to one dated point would falsely backdate/duplicate (the windowing lesson). The problem's current
+  trend/frequency shows in the modal **header** (a fact from the row), not as a dated event. Frontend:
+  `ProblemTimelineModal.tsx` (vertical mini-timeline) + clickable **Tracked Problems** card on the dashboard
+  + main-timeline "Started tracking X"/"X resolved" points now open the sub-timeline (carry `problemId`).
+  Verified: migraine (active, 6 episodes + trend marker at Apr 21) and strep throat (resolved, alias-linked
+  "sore throat" entry + "Marked resolved"). ruff + tsc clean, Playwright 0 errors. **(Parts 2 & 3 done — see
+  newer entry above.)**
+- **2026-06-30** — **Timeline detail windowing fix (per-event-type window).** Not committed. **Verified live.**
+  **Bug:** the Timeline detail modal showed empty "What was logged"/"AI Observations" for the *derived trend*
+  point ("Blood pressure trending upward"). **Root cause (not the chest-pain entry):** that point anchors to
+  the **last** bp_systolic reading (2026-06-27) but represents a ~6-month **span**; querying it with the same
+  `window_days=1` as a point event → only 06-26..06-28 → missed the entire producing series. (The chest-pain
+  entry id 43 is dated **2026-06-30**, a genuinely *different* day from the trend anchor (06-27) that the
+  horizontal UI visually clusters at the "June" end; id 43 correctly lives under the **"Started tracking chest
+  pain"** (06-30) point, which already returns it — entries=2, obs=9.) **Fix:** windows are now chosen by event
+  TYPE. Detail endpoint gained an optional `?start=YYYY-MM-DD` (asymmetric range `[start, day]`, ignores
+  `window_days`); `services/timeline.py::_window_bounds` handles both modes. `Timeline.tsx` tags the trend
+  event with `start = first bp reading day` (point events leave `start` undefined → keep narrow ±1d); modal
+  subtitle shows the date range for spans. **No schema change, no blanket window bump, no seed change.**
+  **Before→after on the broken point:** entries 0→9, vitals 3→17 (full BP series). Regression-checked: First
+  BP reading point still vitals=3 (narrow); chest-pain point still shows id 43. ruff + tsc clean, Playwright 0
+  errors. (Note: AI-Observations stays empty on the *trend* point by design — observations are generated at
+  intake time (06-30) and attach to the 06-30 point, not retroactively to the historical producing span.)
+- **2026-06-30** — **Dashboard interactivity pass (3 changes).** Not committed. **Verified live (Playwright,
+  demo patient, 0 console errors).**
+  **(1) Health Timeline → horizontal + interactive with a REAL detail endpoint.** New backend:
+  `GET /api/patients/{id}/timeline/{date}/detail?window_days=1` (`services/timeline.py`,
+  `routes/timeline.py`, registered in `main.py`) assembles the FULL context for a date window from the
+  canonical tables — `entries` (the patient's **raw_text**, not the parsed summary), `vital_readings`,
+  `observations`, `alerts` — scoped to `[date−w, date+w]` in UTC half-open bounds. New schemas
+  `TimelineDetailOut` + sub-models in `schemas/outputs.py`. Frontend `Timeline.tsx` rewritten: same
+  `buildEvents` placement logic but rendered as a **horizontal scrollable track** of clickable points;
+  click opens a **centered modal** (new `Dialog` primitive in `ui.tsx`) that fetches the detail and shows
+  4 sections (What was logged / Vitals & symptoms / AI observations / Alerts). Genuinely backend-assembled,
+  not re-derived from page data (verified: 2026-01-26 point → real "sore throat with fever" entry text;
+  2026-01-01 → 3 vitals).
+  **(2) Smaller stat cards + alerts, with hover history + expandable alerts.** `StatCard.tsx` density
+  reduced (`p-5→p-3.5`, `text-3xl→text-2xl`) + optional `popover` slot (CSS group-hover, no nav): BP/Weight
+  show an inline-SVG **sparkline** (`Sparkline.tsx`, dependency-free) of recent readings from the already-
+  fetched vitals; Active Problems/Migraine show a short text popover. **Alerts**: new backend
+  `GET /api/patients/{id}/alerts/{aid}/context` (`routes/alerts.py` + `THRESHOLD_DESCRIPTIONS` in
+  `services/alerts.py`, schema `AlertContextOut`) returns the last ~5 readings of the alert's `vital_type`
+  up to `created_at`, each flagged `breaches`, plus the crossed threshold rule. `AlertsPanel.tsx` rows are
+  compact + click-to-expand inline showing those triggering readings (verified: 140/146/144 flagged crossing,
+  130/134 not).
+  **(3) AI Observations + Suggested Actions promoted above the timeline + show more.** `DashboardPage.tsx`
+  reordered: stat cards → alerts → **Observations | Suggested Actions** (2-col) → **Timeline** (full-width,
+  bottom). Threaded `obs_limit` through `assemble_state(…, obs_limit=5)` → `build_snapshot` → `?obs_limit`
+  query on the snapshot route (**default stays 5** so Story/PDF and the concise-Story fix are untouched);
+  dashboard requests `obs_limit=10` (now shows 6 deduped obs vs old cap of 5). Items stay single-line — only
+  the count rose. ruff clean, `pytest` 12 passed, `npm run build` (tsc) clean, `alembic check` no drift
+  (no schema change). **Env note:** the long-running `:8001 --reload` dev server had silently stopped
+  hot-reloading (stale routes → 404s); restarted fresh. **Still pending (next session, unchanged):** Vitals
+  individual chart cards + Story "Key Insights" panel.
 - **2026-06-30** — **Post-Phase-8 refinement pass (content quality + UX).** Not committed.
   **Story** (`services/story.py`): rewritten to 3 paragraphs (headline → connected reasoning → stable/missing),
   enriched payload (conditions/resolved/missing), whitespace-normalized, still non-diagnostic.

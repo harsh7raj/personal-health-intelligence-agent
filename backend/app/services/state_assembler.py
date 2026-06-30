@@ -75,7 +75,9 @@ def _problem_view(p: Problem) -> ProblemView:
     )
 
 
-def assemble_state(db: Session, patient_id: int) -> PatientHealthState:
+def assemble_state(
+    db: Session, patient_id: int, obs_limit: int = 5
+) -> PatientHealthState:
     patient = db.get(Patient, patient_id)
     bg = db.scalar(
         select(MedicalBackground).where(MedicalBackground.patient_id == patient_id)
@@ -98,7 +100,7 @@ def assemble_state(db: Session, patient_id: int) -> PatientHealthState:
             .order_by(Observation.created_at.desc())
         ).all()
     )
-    obs = dedupe_observations(obs_all, limit=5)
+    obs = dedupe_observations(obs_all, limit=obs_limit)
     missing = list(
         db.scalars(
             select(MissingInformation).where(

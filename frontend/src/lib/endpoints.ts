@@ -55,6 +55,46 @@ export interface IntakeResult {
   new_entry?: Record<string, unknown> | null
   context_bundle?: Record<string, unknown> | null
 }
+export interface TimelineEntryDetail {
+  id: number; type: string; raw_text: string | null
+  structured: Record<string, unknown>; source: string | null; created_at: string
+}
+export interface TimelineVitalDetail {
+  id: number; vital_type: string; value: number; unit: string | null; recorded_at: string
+}
+export interface TimelineObservationDetail { id: number; text: string; created_at: string }
+export interface TimelineAlertDetail {
+  id: number; kind: string; message: string; severity: string | null
+  vital_type: string | null; created_at: string
+}
+export interface TimelineDetail {
+  date: string; window_days: number
+  entries: TimelineEntryDetail[]
+  vital_readings: TimelineVitalDetail[]
+  observations: TimelineObservationDetail[]
+  alerts: TimelineAlertDetail[]
+}
+export interface AlertContextReading {
+  id: number; vital_type: string; value: number; unit: string | null
+  recorded_at: string; breaches: boolean
+}
+export interface AlertContext {
+  alert: Alert; threshold: string | null; readings: AlertContextReading[]
+}
+export interface ProblemTimelinePoint {
+  date: string
+  kind: "first_seen" | "episode" | "reading" | "trend_change" | "resolved"
+  label: string; detail: string | null; severity: string | null; entry_id: number | null
+}
+export interface ProblemTimeline {
+  problem: {
+    id: number; name: string; status: string; severity: string | null
+    frequency: string | null; trend: string | null
+    first_seen: string | null; last_seen: string | null; resolved_at: string | null
+    episode_count: number
+  }
+  points: ProblemTimelinePoint[]
+}
 
 // ---------- Auth ----------
 export async function login(email: string, password: string): Promise<string> {
@@ -123,8 +163,18 @@ export const fetchReportBlob = (id: number, rid: number) =>
   api.get(`/patients/${id}/reports/${rid}/file`, { responseType: "blob" }).then((r) => r.data as Blob)
 
 // ---------- Outputs ----------
-export const getSnapshot = (id: number) =>
-  api.get<Snapshot>(`/patients/${id}/snapshot`).then((r) => r.data)
+export const getSnapshot = (id: number, obsLimit?: number) =>
+  api
+    .get<Snapshot>(`/patients/${id}/snapshot`, {
+      params: obsLimit ? { obs_limit: obsLimit } : undefined,
+    })
+    .then((r) => r.data)
+export const getTimelineDetail = (id: number, day: string, windowDays = 1, start?: string) =>
+  api
+    .get<TimelineDetail>(`/patients/${id}/timeline/${day}/detail`, {
+      params: start ? { start } : { window_days: windowDays },
+    })
+    .then((r) => r.data)
 export const getStory = (id: number) =>
   api.get<Story>(`/patients/${id}/story`).then((r) => r.data)
 export const getProblems = (id: number) =>
@@ -139,6 +189,10 @@ export const listAlerts = (id: number, unacknowledged = false) =>
   api.get<Alert[]>(`/patients/${id}/alerts`, { params: { unacknowledged } }).then((r) => r.data)
 export const ackAlert = (id: number, aid: number) =>
   api.post<Alert>(`/patients/${id}/alerts/${aid}/ack`).then((r) => r.data)
+export const getAlertContext = (id: number, aid: number) =>
+  api.get<AlertContext>(`/patients/${id}/alerts/${aid}/context`).then((r) => r.data)
+export const getProblemTimeline = (id: number, problemId: number) =>
+  api.get<ProblemTimeline>(`/patients/${id}/problems/${problemId}/timeline`).then((r) => r.data)
 
 // ---------- Doctor access ----------
 export const listDoctorAccess = (id: number) =>

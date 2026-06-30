@@ -17,6 +17,7 @@ from app.api.routes import (
     reports,
     shared,
     symptoms,
+    timeline,
     vitals,
 )
 from app.core.config import get_settings
@@ -59,6 +60,7 @@ def create_app() -> FastAPI:
     app.include_router(reports.router, prefix=settings.API_PREFIX)
     app.include_router(intake.router, prefix=settings.API_PREFIX)
     app.include_router(outputs.router, prefix=settings.API_PREFIX)
+    app.include_router(timeline.router, prefix=settings.API_PREFIX)
     app.include_router(alerts.router, prefix=settings.API_PREFIX)
     app.include_router(doctor_access.router, prefix=settings.API_PREFIX)
     app.include_router(shared.router, prefix=settings.API_PREFIX)

@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import type {
   ButtonHTMLAttributes,
   HTMLAttributes,
@@ -98,6 +99,61 @@ export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingEle
 
 export function CardContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("px-5 pb-5 pt-0", className)} {...props} />
+}
+
+export function Dialog({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean
+  onClose: () => void
+  title?: ReactNode
+  children: ReactNode
+}) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      document.body.style.overflow = prev
+    }
+  }, [open, onClose])
+
+  if (!open) return null
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="my-auto w-full max-w-2xl rounded-lg border bg-card text-card-foreground shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-4 border-b px-5 py-3.5">
+          <div className="text-sm font-semibold text-foreground">{title}</div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded-md p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="max-h-[70vh] overflow-y-auto px-5 py-4">{children}</div>
+      </div>
+    </div>
+  )
 }
 
 export function Badge({
