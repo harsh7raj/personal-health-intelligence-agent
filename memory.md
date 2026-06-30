@@ -128,6 +128,21 @@ Backend enables `CORSMiddleware` with origins from `CORS_ORIGINS` (default `http
 Dev primarily uses the **Vite proxy** (`/api`→:8001, same-origin, no CORS needed), but CORS is on as
 belt-and-suspenders so the API also works cross-origin / unproxied. `allow_credentials=True`, all methods/headers.
 
+### D11 — Test isolation: **separate `phia_test` DB** (SETTLED 2026-06-30, Phase 8)
+`backend/tests/conftest.py` creates/drops a dedicated `phia_test` database per session, points the app engine
+at it (env override + settings cache clear before app import), stubs the vectorstore + Groq (offline/deterministic).
+The demo DB (carol/Dana) is never touched. Run: `uv run pytest`.
+
+### D12 — Non-diagnostic enforcement: **prompts + runtime filter + audit** (SETTLED 2026-06-30, Phase 8)
+Defense in depth: tightened intake/reasoning/story prompts; `app/services/language_guard.py` denylist;
+`observations.generate_observations` **drops** any candidate flagged as diagnostic before insert (logged);
+`scripts/audit_language.py <pid>` scans stored obs + generated story, exits nonzero on any violation.
+
+### D13 — LLM resilience: **client timeout/retries + node fallbacks** (no LangGraph RetryPolicy) (Phase 8)
+`groq_client` uses `LLM_TIMEOUT=30` + `LLM_MAX_RETRIES=2`. `intake.parse_entry` degrades to the deterministic
+fallback on Groq failure (never 500s); `/intake` route wraps the graph in try/except → clean **502** on
+unexpected failure. Observations + story already had fallbacks. Verified by fault injection.
+
 ---
 
 ## 3. PatientHealthState (Pydantic, in-memory shared state)
@@ -326,9 +341,13 @@ Vite+TS+Tailwind SPA: auth+onboarding, intake+forms, dashboard snapshot+alerts, 
 story (+fallback badge), doctor sharing (token + DoctorView + PDF). Real backend (Vite proxy), no mocks.
 Added backend `GET /patients/me` + CORS. Verified per-group via Playwright screenshots. *Depends: 6.*
 
-### Phase 8 — Integration, Hardening, Demo
-Node-level error handling + LangGraph retries, seed/demo data, end-to-end test of full pipeline,
-non-diagnostic-language audit, viva walkthrough script. *Depends: 7.*
+### Phase 8 — Integration, Hardening, Demo ✅ DONE (2026-06-30)
+Pipeline error handling/degradation (D13), idempotent seed (`scripts/seed_demo.py` → demo@phia.health),
+pytest suite vs `phia_test` (D11), non-diagnostic guard + audit (D12), loose-ends fixed. *Depends: 7.*
+**Viva/teaching docs intentionally deferred** — a separate doc pass on explicit request, NOT part of Phase 8.
+
+> **Demo login:** patient `demo@phia.health` / `demo-pass-123` (re-run `uv run python -m scripts.seed_demo`
+> to (re)populate). Backend `:8001`, frontend `:5173` (`npm run dev`), containers via `docker compose up -d`.
 
 > Phases 3 and the model work of 2 can overlap slightly; 7 can start against mocked API once 6's
 > contracts are frozen. Otherwise treat as sequential.
@@ -337,6 +356,21 @@ non-diagnostic-language audit, viva walkthrough script. *Depends: 7.*
 
 ## 9. Work Log (newest first)
 
+- **2026-06-30** — **Integration & Hardening DONE** (roadmap Phase 8 — final build phase; demo-ready).
+  (1) **Resilience** (D13): `groq_client` timeout+retries; `intake.parse_entry` degrades to fallback on Groq
+  failure; `/intake` route → clean 502 on pipeline error. (2) **Seed**: `scripts/seed_demo.py` (idempotent)
+  → **demo@phia.health / demo-pass-123** (patient "Dana Demo"): 6-month rising BP, migraine increasing (6
+  episodes), resolved strep throat, migraine+fatigue cluster, meds, non-diagnostic observations, Chroma
+  embeds. (3) **Tests** (D11): `pytest` suite in `backend/tests/` vs separate `phia_test` DB, Groq+vectorstore
+  stubbed — units (alerts/trend/BP-recovery/dedupe/guard) + DB services + full-pipeline integration +
+  clarify + cross-user 403. **12 passed.** (4) **Non-diagnostic** (D12): tighter prompts + `language_guard.py`
+  runtime filter on observations + `scripts/audit_language.py` (seed patient → 0 violations). (5) **Loose ends
+  fixed**: `POST /vitals` now recomputes summary + alerts (Phase-5 gap closed, verified 70→68); `/symptoms`
+  POST embeds into Chroma; `SECRET_KEY` dev default lengthened (≥32B, silences pyjwt warn); removed unused
+  frontend scaffold assets. Verified: ruff clean (app/tests/scripts), `alembic check` no drift, fault-injection
+  (Groq down → intake **200** fallback note), Playwright screenshot of seeded dashboard (rich, 0 console errors).
+  **NO viva/README/teaching docs (deferred per user).** Not committed (left to user). **System fully built,
+  Phases 0–8 complete.**
 - **2026-06-30** — **Frontend DONE** (roadmap Phase 7). React+Vite+TS SPA in `frontend/`, talks to the
   REAL backend (Vite proxy `/api`→:8001), no mocks. Auth: JWT in localStorage, axios interceptors
   (attach token / 401→logout), `AuthProvider` resolves user + patient via `/auth/me` + `/patients/me`,

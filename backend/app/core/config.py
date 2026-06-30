@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     CHROMA_HOST: str = "localhost"
     CHROMA_PORT: int = 8000
 
-    # Auth
-    SECRET_KEY: str = "dev-only-change-me-in-prod"
+    # Auth (dev default is >=32 bytes; override in any real deployment)
+    SECRET_KEY: str = "dev-only-change-me-in-prod-0123456789abcdef"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     RESOLVE_AFTER_DAYS: int = 90
     CLUSTER_WINDOW_HOURS: int = 48
     MISSING_BP_DAYS: int = 60
+
+    # LLM resilience (Phase 8)
+    LLM_TIMEOUT: float = 30.0
+    LLM_MAX_RETRIES: int = 2
 
 
 @lru_cache

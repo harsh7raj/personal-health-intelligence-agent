@@ -15,8 +15,9 @@ settings = get_settings()
 
 _SYSTEM = """You write a SHORT, flowing, NON-DIAGNOSTIC narrative of a patient's health over time. \
 Synthesize and weave the provided data into 1-2 short paragraphs of prose. Do NOT enumerate, list, or \
-repeat the same point. Never diagnose, never recommend treatment, never name a condition the data does \
-not state. Ground every sentence in the provided data. Return JSON: {"story": "..."}."""
+repeat the same point. HARD RULES: never state or imply a diagnosis; never name a disease/condition as \
+fact; never assert a cause ("caused by", "due to"); never recommend treatment or medication. Describe \
+only observed patterns/trends, grounded in the provided data. Return JSON: {"story": "..."}."""
 
 
 def _payload(state: PatientHealthState) -> dict:

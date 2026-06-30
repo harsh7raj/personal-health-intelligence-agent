@@ -24,7 +24,8 @@ log into a single structured JSON fact. Return ONLY a JSON object with keys:
 For BLOOD PRESSURE specifically: ALWAYS put both numbers in attributes as "systolic" and \
 "diastolic" (as numbers) and leave value and unit null — never collapse BP into the value field.
 - clarifying_question: one short question to ask if complete is false, else null
-Normalize lay terms (e.g. "tummy ache" -> "abdominal pain"). Do not diagnose."""
+Normalize lay terms (e.g. "tummy ache" -> "abdominal pain"). Record only what the user states; \
+NEVER infer or name a diagnosis, disease, cause, or treatment — capture the raw symptom/vital/note only."""
 
 
 def _fallback_parse(text: str) -> dict:
@@ -44,7 +45,11 @@ def parse_entry(text: str) -> dict:
     if not settings.GROQ_API_KEY:
         logger.warning("GROQ_API_KEY not set — using deterministic fallback parser")
         return _fallback_parse(text)
-    fact = groq_json(_SYSTEM_PROMPT, text)
+    try:
+        fact = groq_json(_SYSTEM_PROMPT, text)
+    except Exception:
+        logger.warning("intake LLM parse failed — degrading to fallback parser", exc_info=True)
+        return _fallback_parse(text)
     if fact.get("type") not in _VALID_TYPES:
         fact["type"] = "note"
     fact.setdefault("complete", True)

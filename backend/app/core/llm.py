@@ -12,7 +12,13 @@ settings = get_settings()
 @lru_cache
 def groq_client() -> OpenAI:
     # OpenAI-compatible client pointed at Groq (see memory.md D7).
-    return OpenAI(api_key=settings.GROQ_API_KEY, base_url=settings.GROQ_BASE_URL)
+    # Bounded timeout + automatic retries for transient failures (Phase 8).
+    return OpenAI(
+        api_key=settings.GROQ_API_KEY,
+        base_url=settings.GROQ_BASE_URL,
+        timeout=settings.LLM_TIMEOUT,
+        max_retries=settings.LLM_MAX_RETRIES,
+    )
 
 
 def groq_json(system: str, user: str, model: str | None = None) -> dict[str, Any]:

@@ -1,11 +1,13 @@
+import logging
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import OwnedPatient
 from app.graph.graph import graph
 from app.schemas.intake import IntakeAnswerIn, IntakeIn, IntakeOut
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/patients", tags=["intake"])
 
 
@@ -16,7 +18,14 @@ def _get(result: Any, key: str) -> Any:
 
 
 def _run(patient_id: int, text: str) -> IntakeOut:
-    result = graph.invoke({"patient_id": patient_id, "raw_input": text})
+    try:
+        result = graph.invoke({"patient_id": patient_id, "raw_input": text})
+    except Exception as exc:  # pipeline-level failure (e.g. store outage)
+        logger.exception("intake pipeline failed for patient %s", patient_id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not process this entry right now. Please try again.",
+        ) from exc
     if _get(result, "needs_clarification"):
         return IntakeOut(
             status="clarification_needed", question=_get(result, "pending_question")

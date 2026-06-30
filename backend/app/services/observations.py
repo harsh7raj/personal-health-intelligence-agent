@@ -10,15 +10,18 @@ from app.core.config import get_settings
 from app.core.llm import groq_json
 from app.models.clinical import Problem, SymptomCluster, VitalSummary
 from app.models.intelligence import Observation
+from app.services.language_guard import is_diagnostic
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 _SYSTEM = """You write SHORT, factual, NON-DIAGNOSTIC observations about patterns in a \
-patient's longitudinal health data. Rules: never diagnose, never recommend treatment, \
-never name a condition the data does not already state. Phrase as neutral observations of \
-patterns/trends, grounded ONLY in the data provided. Return JSON: {"observations": [strings]} \
-with 0 to 3 short items. If nothing noteworthy, return an empty list."""
+patient's longitudinal health data. HARD RULES: never state or imply a diagnosis; never name a \
+disease/condition as fact; never assert a cause ("caused by", "due to", "because of"); never \
+recommend treatment or medication. Only describe observed patterns/trends/frequencies, grounded \
+ONLY in the data provided. GOOD: "Headache episodes have increased to 3 in two months." \
+BAD: "You have migraines", "This is caused by stress", "You should take ibuprofen". \
+Return JSON: {"observations": [strings]} with 0 to 3 short items; empty list if nothing noteworthy."""
 
 
 def generate_observations(
@@ -63,9 +66,12 @@ def generate_observations(
 
     created: list[str] = []
     for text in (res.get("observations") or [])[:3]:
-        if isinstance(text, str) and text.strip():
-            db.add(
-                Observation(patient_id=patient_id, text=text.strip(), evidence=payload)
-            )
-            created.append(text.strip())
+        if not isinstance(text, str) or not text.strip():
+            continue
+        clean = text.strip()
+        if is_diagnostic(clean):  # runtime non-diagnostic guard (Phase 8)
+            logger.warning("dropped diagnostic-sounding observation: %s", clean)
+            continue
+        db.add(Observation(patient_id=patient_id, text=clean, evidence=payload))
+        created.append(clean)
     return created
