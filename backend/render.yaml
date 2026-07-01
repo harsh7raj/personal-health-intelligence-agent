@@ -1,0 +1,38 @@
+# Render Blueprint for the FastAPI backend.
+# In the Render dashboard: New + > Blueprint, point it at this repo.
+# Render reads this file and creates the service. Fill the `sync: false`
+# secrets in the dashboard afterwards (they are NOT stored in git).
+services:
+  - type: web
+    name: phia-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install uv && uv sync --no-dev
+    startCommand: bash start.sh
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      # Run Chroma in-process — free tier hosts a single service, no separate DB server.
+      - key: CHROMA_MODE
+        value: embedded
+      - key: CHROMA_PATH
+        value: /tmp/chroma_data
+      # First deploy: keep "true" so Postgres + the (ephemeral) vector store are populated.
+      # See DEPLOY.md for the persistence trade-off on the free tier.
+      - key: SEED_ON_START
+        value: "true"
+      # Auto-generated 32-byte secret for JWT signing.
+      - key: SECRET_KEY
+        generateValue: true
+      # --- Set these in the Render dashboard (Environment tab) ---
+      # Neon Postgres URL. IMPORTANT: use the "postgresql+psycopg://" scheme
+      # and keep "?sslmode=require". See DEPLOY.md.
+      - key: DATABASE_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      # Comma-separated Vercel origin(s), e.g. https://your-app.vercel.app
+      - key: CORS_ORIGINS
+        sync: false
