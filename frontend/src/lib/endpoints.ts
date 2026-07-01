@@ -32,7 +32,8 @@ export interface VitalSummary {
 }
 export interface Medication {
   id: number; patient_id: number; name: string; dose: string | null
-  frequency: string | null; started_on: string | null; active: boolean
+  frequency: string | null; dose_times: string[]; interval_days: number; purpose: string | null
+  started_on: string | null; active: boolean
   attributes: Record<string, unknown>; created_at: string; updated_at: string
 }
 export interface Symptom {
@@ -49,11 +50,42 @@ export interface DoctorAccess {
   id: number; token: string; doctor_label: string | null
   expires_at: string; revoked: boolean; created_at: string
 }
+export interface SemanticMatch {
+  text: string
+  metadata: { entry_id?: number; type?: string; date?: string }
+  distance: number
+}
+export interface ReasoningSummary {
+  entry_type?: string
+  problem?: string | null
+  vitals_updated?: string[]
+  alerts?: { kind: string; vital_type?: string | null; message: string }[]
+  observations?: string[]
+  suggested_actions?: string[]
+  resolved?: string[]
+}
+export interface NewEntry {
+  entry_id: number
+  type: string
+  name: string | null
+  structured: Record<string, unknown>
+  raw_text: string
+}
 export interface IntakeResult {
   status: "processed" | "clarification_needed"
   question?: string | null
-  new_entry?: Record<string, unknown> | null
-  context_bundle?: Record<string, unknown> | null
+  new_entry?: NewEntry | null
+  context_bundle?: { semantic_matches?: SemanticMatch[] } & Record<string, unknown> | null
+  reasoning_summary?: ReasoningSummary | null
+}
+export interface HistoryEntry {
+  id: number
+  patient_id: number
+  type: string
+  raw_text: string | null
+  structured: Record<string, unknown>
+  source: string | null
+  created_at: string
 }
 export interface TimelineEntryDetail {
   id: number; type: string; raw_text: string | null
@@ -134,12 +166,64 @@ export const createVital = (id: number, v: { vital_type: string; value: number; 
   api.post<VitalReading>(`/patients/${id}/vitals`, v).then((r) => r.data)
 export const listMedications = (id: number) =>
   api.get<Medication[]>(`/patients/${id}/medications`).then((r) => r.data)
-export const createMedication = (id: number, m: { name: string; dose?: string; frequency?: string }) =>
+export interface DrugReference {
+  used_for: string; timing: string; considerations: string; source: string
+  provenance: "medlineplus" | "ai"
+}
+export interface MedIntelMedication {
+  id: number; name: string; dose: string | null; normalized: string; reference: DrugReference | null
+}
+export interface MedIntelInteraction {
+  drug_a: string; drug_b: string; status: "known" | "none_known" | "same_drug"
+  level: string | null; source: string; advice?: string | null; note?: string | null
+}
+export interface MedIntel {
+  medications: MedIntelMedication[]
+  interactions: MedIntelInteraction[]
+  known_interaction_count: number
+  pairs_checked: number
+  disclaimer: string
+  interaction_source: string
+  reference_source_url: string
+}
+export const getMedIntel = (id: number) =>
+  api.get<MedIntel>(`/patients/${id}/medications/intelligence`).then((r) => r.data)
+
+// ---------- Medication dose tracker (2-week rolling calendar) ----------
+export interface DoseSlot {
+  medication_id: number; name: string; dose: string | null; time: string
+  timing: string | null; taken: boolean; markable: boolean
+}
+export interface CalendarDay {
+  date: string; is_today: boolean; is_future: boolean; slots: DoseSlot[]
+}
+export interface CalendarMedication {
+  id: number; name: string; dose: string | null; purpose: string; color_index: number
+}
+export interface CalendarGroup { purpose: string; medications: CalendarMedication[] }
+export interface MedCalendar {
+  start_date: string; end_date: string; today: string
+  days: CalendarDay[]; groups: CalendarGroup[]; medication_count: number; disclaimer: string
+}
+export const getMedCalendar = (id: number) =>
+  api.get<MedCalendar>(`/patients/${id}/medications/calendar`).then((r) => r.data)
+export const markDoseTaken = (
+  id: number, medId: number, slot: { scheduled_date: string; scheduled_time: string },
+) => api.post(`/patients/${id}/medications/${medId}/doses`, slot)
+export const unmarkDose = (
+  id: number, medId: number, slot: { scheduled_date: string; scheduled_time: string },
+) => api.delete(`/patients/${id}/medications/${medId}/doses`, { data: slot })
+export const createMedication = (
+  id: number,
+  m: { name: string; dose?: string; frequency?: string; dose_times?: string[]; purpose?: string },
+) =>
   api.post<Medication>(`/patients/${id}/medications`, m).then((r) => r.data)
 export const deleteMedication = (id: number, mid: number) =>
   api.delete(`/patients/${id}/medications/${mid}`)
 export const listSymptoms = (id: number) =>
   api.get<Symptom[]>(`/patients/${id}/symptoms`).then((r) => r.data)
+export const listEntries = (id: number, limit = 100, offset = 0) =>
+  api.get<HistoryEntry[]>(`/patients/${id}/entries`, { params: { limit, offset } }).then((r) => r.data)
 export interface Report {
   id: number
   patient_id: number

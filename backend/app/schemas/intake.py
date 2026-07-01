@@ -18,3 +18,6 @@ class IntakeOut(BaseModel):
     question: Optional[str] = None
     new_entry: Optional[dict[str, Any]] = None
     context_bundle: Optional[dict[str, Any]] = None
+    # Already computed by reasoning_node (newly-created observations/alerts, etc.);
+    # surfaced here so the Log thread can show what the entry just triggered.
+    reasoning_summary: Optional[dict[str, Any]] = None

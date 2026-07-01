@@ -2,7 +2,15 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,6 +19,7 @@ from app.api.deps import DbSession, OwnedPatient
 from app.core.config import get_settings
 from app.models.records import Report
 from app.schemas.report import ReportOut
+from app.services.report_extraction import parse_report
 
 settings = get_settings()
 router = APIRouter(prefix="/patients", tags=["reports"])
@@ -33,6 +42,7 @@ def _get_report(db: Session, patient_id: int, report_id: int) -> Report:
 def upload_report(
     patient: OwnedPatient,
     db: DbSession,
+    background: BackgroundTasks,
     file: UploadFile = File(...),
     report_type: Optional[str] = Form(None),
     summary: Optional[str] = Form(None),
@@ -49,10 +59,15 @@ def upload_report(
         path=str(stored),
         report_type=report_type,
         summary=summary,
+        status="uploaded",
     )
     db.add(report)
     db.commit()
     db.refresh(report)
+    # Extraction (text + Groq structured parse) runs AFTER the response is sent, so the
+    # upload request never blocks on the LLM call. Status flips uploaded -> parsing ->
+    # parsed|failed in the background.
+    background.add_task(parse_report, report.id)
     return report
 
 

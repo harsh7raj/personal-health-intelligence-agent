@@ -9,6 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.models.clinical import VitalReading, VitalSummary
 
+# Lab test series reuse the SAME vital_readings/vital_summary tables and the SAME
+# rolling-average trend math as vitals — they're just namespaced so they never collide
+# with real vital signs. "LDL Cholesterol" -> "lab_ldl_cholesterol".
+LAB_PREFIX = "lab_"
+
 # Matches "130 over 85" or "130/85" (two 2-3 digit numbers).
 _BP_RE = re.compile(r"(\d{2,3})\s*(?:/|over)\s*(\d{2,3})")
 
@@ -152,3 +157,70 @@ def record_vital_and_recompute(
     for vt in {r[0] for r in readings}:
         recompute_summary(db, patient_id, vt)
     return readings
+
+
+def lab_vital_type(test_name: str) -> str:
+    """Namespace a lab test_name into a vital_type, e.g. 'LDL Cholesterol' ->
+    'lab_ldl_cholesterol'. Collapses non-alphanumerics so the same test from different
+    reports maps to one series."""
+    slug = re.sub(r"[^a-z0-9]+", "_", (test_name or "").lower()).strip("_")
+    return f"{LAB_PREFIX}{slug}" if slug else f"{LAB_PREFIX}unknown"
+
+
+def is_lab_vital_type(vital_type: str) -> bool:
+    return (vital_type or "").startswith(LAB_PREFIX)
+
+
+def record_lab_readings_and_recompute(
+    db: Session,
+    patient_id: int,
+    report_id: int,
+    values: list[dict],
+    recorded_at: datetime,
+) -> list[str]:
+    """Treat each numeric lab result as a point in a per-test time series and run the
+    SAME rolling-average-delta trend (recompute_summary) used for vitals. Recurring tests
+    (e.g. LDL across 3 panels) therefore get a trend exactly like a vital does.
+
+    Idempotent per report: prior readings tagged with this report_id are removed first, so
+    re-parsing a report never double-counts. recorded_at should be the report's test_date
+    so cross-report ordering is chronological.
+    """
+    # Drop any prior readings from this same report (idempotent re-parse).
+    existing = db.scalars(
+        select(VitalReading).where(
+            VitalReading.patient_id == patient_id,
+            VitalReading.attributes["report_id"].astext == str(report_id),
+        )
+    ).all()
+    for row in existing:
+        db.delete(row)
+    db.flush()
+
+    affected: set[str] = set()
+    for item in values or []:
+        val = _to_float(item.get("value"))
+        if val is None:
+            continue  # non-numeric labs can't trend
+        vt = lab_vital_type(item.get("test_name", ""))
+        db.add(
+            VitalReading(
+                patient_id=patient_id,
+                vital_type=vt,
+                value=val,
+                unit=item.get("unit"),
+                recorded_at=recorded_at,
+                attributes={
+                    "report_id": report_id,
+                    "test_name": item.get("test_name"),
+                    "reference_range": item.get("reference_range"),
+                    "flag": item.get("flag"),
+                    "source": "report",
+                },
+            )
+        )
+        affected.add(vt)
+    db.flush()
+    for vt in affected:
+        recompute_summary(db, patient_id, vt)
+    return sorted(affected)

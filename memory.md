@@ -138,6 +138,21 @@ Defense in depth: tightened intake/reasoning/story prompts; `app/services/langua
 `observations.generate_observations` **drops** any candidate flagged as diagnostic before insert (logged);
 `scripts/audit_language.py <pid>` scans stored obs + generated story, exits nonzero on any violation.
 
+### D14 — Medication intelligence data sources (SETTLED 2026-06-30, user-confirmed)
+Safety-sensitive feature; sources researched and confirmed before building.
+- **Drug-drug interactions: DDInter 2.0** (`https://ddinter2.scbdd.com/`, SCBDD). Local table imported from the
+  official ATC CSVs (schema `DDInterID_A,Drug_A,DDInterID_B,Drug_B,Level`; Level∈Major/Moderate/Minor/Unknown).
+  **License: CC BY-NC-SA 4.0** — fine for this **non-commercial academic capstone**, but caveats: must
+  **attribute/cite** DDInter 2.0 (NAR 2025, PMC11701621); **ShareAlike** (any redistributed derivative must carry
+  the same license — so the CSVs are **gitignored, not vendored** in-repo, re-downloaded by the import script);
+  **no commercialization** without permission. Rejected: RxNav DDI API (dead since Jan 2024); DrugBank academic
+  (CC BY-NC but gated behind slow human approval); third-party GitHub mirrors (no clean provenance).
+- **Name normalization: RxNorm/RxNav** (`https://rxnav.nlm.nih.gov/REST/`, free, no key, live) — name→ingredient.
+- **Per-drug reference (#1): curated, MedlinePlus-cited static table** (no LLM pharmacology).
+- **HARD RULE (enforced + tested):** interactions surfaced ONLY from the DDInter table; no LLM in the path; a
+  missing pair is "No known interaction found in DDInter 2.0" — **never "safe"**; everything framed "discuss with
+  your doctor or pharmacist" + visible disclaimer.
+
 ### D13 — LLM resilience: **client timeout/retries + node fallbacks** (no LangGraph RetryPolicy) (Phase 8)
 `groq_client` uses `LLM_TIMEOUT=30` + `LLM_MAX_RETRIES=2`. `intake.parse_entry` degrades to the deterministic
 fallback on Groq failure (never 500s); `/intake` route wraps the graph in try/except → clean **502** on
@@ -225,14 +240,16 @@ LangGraph pipeline and return the resulting snapshot.
 - `PUT  /patients/{id}/background` — update conditions/allergies/family/surgical/lifestyle
 
 ### Intake (pipeline-triggering + clarify branch)
-- `POST /patients/{id}/intake` — submit free-text/structured input → runs pipeline → snapshot, OR returns a follow-up question (clarify branch)
-- `POST /patients/{id}/intake/answer` — answer a pending follow-up; resumes pipeline
+- `POST /patients/{id}/intake` — submit free-text/structured input → runs pipeline → snapshot, OR returns a follow-up question (clarify branch). **Response (`IntakeOut`) surfaces** `new_entry` (extracted), `context_bundle.semantic_matches` (Memory RAG hits), **and `reasoning_summary`** (newly-created observations/alerts) — the Log thread renders these inline.
+- `POST /patients/{id}/intake/answer` — answer a pending follow-up; resumes pipeline (stateless re-invoke on the accumulated transcript; frontend caps at 3 follow-ups)
+- `GET  /patients/{id}/entries?limit&offset` — full append-only entry history (all types, newest-first); read-only projection for the Log thread
 
 ### Core CRUD (each create also feeds Intake/pipeline)
 - `POST/GET/PUT/DELETE /patients/{id}/symptoms[/{sid}]`
 - `POST/GET/PUT/DELETE /patients/{id}/vitals[/{vid}]` — vital readings (numeric)
 - `POST/GET/DELETE     /patients/{id}/reports[/{rid}]` — upload + list lab reports (multipart)
 - `POST/GET/PUT/DELETE /patients/{id}/medications[/{mid}]`
+- `GET /patients/{id}/medications/intelligence` — per-drug reference (curated, MedlinePlus-cited) + **sourced** drug-drug interaction flags from the local DDInter 2.0 table (no LLM; missing pair → "no known interaction found", never "safe"). Declared before `/{mid}`. (D14)
 - `GET/PUT             /patients/{id}/history` — alias for medical background timeline
 
 ### Health state reads (Response Agent surface)
@@ -356,6 +373,75 @@ pytest suite vs `phia_test` (D11), non-diagnostic guard + audit (D12), loose-end
 
 ## 9. Work Log (newest first)
 
+- **2026-07-01** — **Report intelligence pipeline (Parts 1 + 2). Committed.** Turns uploaded reports from a
+  dumb file store into a real pipeline ingestion point. **Part 1 (extraction):** `services/report_extraction.py`
+  — `pypdf` text extraction (scanned/image PDFs raise `OcrRequiredError`, a flagged **TODO**, never a silent
+  empty parse); Groq structured-extraction (`report_type`/`test_date`/`values[]` of
+  `{test_name,value,unit,reference_range,flag∈normal|high|low|unknown}`; non-lab docs → `values:[]`). Extended
+  `reports` table (migration `c3e4f5a6b7d8`): `status(uploaded→parsing→parsed|failed)`, `test_date`,
+  `extracted_text`, `extracted_values` JSONB, `parse_error`. Parsing runs as a **FastAPI BackgroundTask** after
+  upload responds (never blocks on Groq). **Part 2 (make findings visible to the agents):**
+  (1) **Chroma indexing** — `services/report_indexing.py` chunks each parsed report into one summary chunk +
+  one per lab value, upserts into the **`patient_reports`** collection (memory.md §5) tagged
+  `patient_id/report_id/date/report_type/test_name/flag` (idempotent: deletes prior chunks by `report_id` first).
+  (2) **Memory retrieval GAP FOUND & FIXED** — `memory_node` only queried `patient_entries`, so report chunks
+  in `patient_reports` were invisible; added `_report_matches()` (top-k over `patient_reports`) →
+  `context_bundle.report_matches` + `context_bundle.lab_trends`. This realizes §5's "patient_reports read by
+  Memory Agent", which was never actually wired. (3) **Lab trends REUSE the vitals module** — new
+  `record_lab_readings_and_recompute()` in `services/vitals_trend.py` writes each numeric lab result as a
+  `VitalReading` with `vital_type="lab_<slug>"` (dated at `test_date`) and calls the SAME `recompute_summary`
+  (D1 rolling-average) — recurring tests (e.g. LDL across panels) trend exactly like a vital. **Note:** D1 needs
+  ≥4 readings for a non-stable trend (recent-3 vs prior window); exactly 3 → "stable" (no baseline window).
+  (4) **`ai_summary`** (migration `d4f5a6b7c8e9`) — one extra Groq call at parse time → 1-2 sentence
+  plain-language, **non-diagnostic** takeaway (language-guarded; deterministic fallback when Groq off/flagged),
+  fed the cross-report trend so it says "trending up since <first panel date>". `observations.py` now consumes
+  `context_bundle.report_matches` + splits real vitals from `lab_*` series so Reasoning can **cite reports**.
+  **Sanity check (`scripts/sanity_report_intelligence.py`, live Postgres+Chroma+Groq):** 4 lipid panels
+  (LDL 128→176) → LDL trend `rising` (+26.6%) via the vitals module; `ai_summary` "trending up since
+  February 10, 2026"; Memory retrieval returns 5 report chunks incl. all LDL values; full-graph run on a
+  complete symptom entry → observation **"LDL Cholesterol was 176 mg/dL on the latest lipid panel and has
+  trended upward across reports"** (cites the report, not vitals). **Gotcha:** the pipeline is ingestion-driven
+  — a bare *question* ("what's my cholesterol trend") hits the intake-parse gate → clarify branch, never reaching
+  Memory/Reasoning; the honest check logs a complete entry (and calls `memory_node` directly to isolate
+  retrieval). ruff clean; **34 pytest pass** (+8 new offline tests in `test_report_intelligence.py`); alembic no
+  drift; reports collection stubbed in conftest. **Deferred to later parts:** frontend surfacing of
+  status/ai_summary/values; OCR fallback.
+- **2026-06-30** — **Medication intelligence (safety-sensitive; reference info + sourced DDI flags).** Not
+  committed. **Verified live (Playwright, 0 console errors); 14 pytest pass (incl. 2 new safety-boundary tests).**
+  **Source research → user-confirmed (see D14).** **Backend (NO LLM anywhere in this feature):**
+  new `drug_interactions` reference table (`models/reference.py`, migration `977d1af8bd80`) holding the local
+  **DDInter 2.0** dataset — **160,235** deduped pairs (Major/Moderate/Minor/Unknown), imported by
+  `scripts/import_ddinter.py` (downloads the 8 official ATC CSVs to a **gitignored** `data/ddinter/`, parses
+  with csv module, keeps most-severe per pair). `services/rxnorm.py` = RxNav name→ingredient normalization
+  (live, cached, **degrades to lowercased raw name** on any network failure — never blocks/500s).
+  `data/drug_reference.py` = **16 curated, MedlinePlus-cited** per-drug entries (used_for/timing/considerations),
+  all pass the language guard. `services/med_intel.py` orchestrates: per-drug reference + pairwise lookup;
+  **known pair → level + "discuss with your doctor or pharmacist"; missing pair → "No known interaction found
+  in DDInter 2.0" (NEVER "safe")**. Route `GET /patients/{id}/medications/intelligence` (declared BEFORE
+  `/{med_id}` so the literal segment wins). **Frontend:** `MedicationIntelligence.tsx` on MedicationsPage —
+  prominent amber disclaimer, interaction list (severity-colored badges; Unknown→"severity not classified"),
+  explicit no-known lines, source+license footer, per-drug reference cards. **Seed:** added **Simvastatin**
+  so a real **Amlodipine+Simvastatin = Major** flag demos (+ Simvastatin+Vitamin D = Unknown, Amlodipine+Vitamin
+  D = none-known). Tests lock the boundary: sourced-only, explicit no-known wording, nothing invented on an empty
+  table. ruff + tsc clean, alembic no drift.
+- **2026-06-30** — **Log page redesign (surface real intelligence).** Not committed. **Verified live (Playwright,
+  0 console errors).** Core insight confirmed: every intake already runs Intake (parse) + Memory (Chroma RAG)
+  + Reasoning (obs/alerts) — the UI just hid it. **Backend (minimal, return-existing-data only):**
+  (1) `IntakeOut += reasoning_summary` and `intake.py::_run` passes `_get(result,"reasoning_summary")` through
+  — the reasoning_node already computed it (newly-created `observations`/`alerts`/`problem`/`suggested_actions`),
+  it was just dropped at the route. (2) New `GET /patients/{id}/entries?limit&offset` (`routes/entries.py`,
+  `EntryOut` in `clinical_io.py`, registered in `main.py`) — paginated full entry history, read-only.
+  **Confirmed `/intake` already returns** `new_entry.structured` (extracted) + `context_bundle.semantic_matches`
+  (RAG hits w/ text+date+distance); only reasoning_summary was missing. **Frontend:** Log is now the **landing
+  page** (`/` → LogPage, Dashboard → `/dashboard`; AppShell nav reordered). LogPage rewritten as a **chat-style
+  thread** from `GET /entries` (user bubble + "Logged: name · attrs"); after a submission it shows **inline**:
+  Related-to-past-entries (real `semantic_matches`, dist<1.0, top 2) + New observations/alerts (real
+  `reasoning_summary`). Med/report mini-forms **removed**; vital quick-add kept + given per-type contextual
+  help (factual ranges, non-diagnostic). Old `IntakeBox.tsx` deleted (dead). **#6 multi-turn clarify:** extended
+  to **up to 3 follow-ups** within the EXISTING clarify branch via frontend transcript accumulation + re-parse
+  (no GraphState/pipeline change) — verified 2 sequential questions then completion. Caveat (told user): entry
+  only persists when parser returns complete; true open-ended stateful dialogue would need LangGraph
+  checkpointer+interrupt + a conversation-state model (deferred). ruff + tsc clean, pytest 12 passed.
 - **2026-06-30** — **Parts 2 & 3: denser seed + re-verify.** Not committed. **Verified live.**
   **Part 2 — `scripts/seed_demo.py` rewritten** for a high-density ~1-year record (idempotent, same
   `demo@phia.health` login): **74 vital readings** (BP every ~2 wks, weight + **blood_glucose** monthly),

@@ -33,8 +33,8 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedLayout />,
     children: [
-      { path: "/", element: <DashboardPage /> },
-      { path: "/log", element: <LogPage /> },
+      { path: "/", element: <LogPage /> },
+      { path: "/dashboard", element: <DashboardPage /> },
       { path: "/vitals", element: <VitalsPage /> },
       { path: "/story", element: <StoryPage /> },
       { path: "/medications", element: <MedicationsPage /> },

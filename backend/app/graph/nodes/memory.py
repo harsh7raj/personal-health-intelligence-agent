@@ -7,7 +7,7 @@ from app.db.session import SessionLocal
 from app.graph.state import GraphState
 from app.models.clinical import Medication, Problem, VitalSummary
 from app.models.records import Entry, MemoryLog
-from app.vectorstore.collections import get_entries_collection
+from app.vectorstore.collections import get_entries_collection, get_reports_collection
 
 settings = get_settings()
 
@@ -33,6 +33,32 @@ def _semantic_matches(patient_id: int, entry_id: int | None, text: str) -> list[
     ]
 
 
+def _report_matches(patient_id: int, text: str) -> list[dict]:
+    """Retrieve top-k report chunks from the patient_reports collection.
+
+    Reports are embedded in a SEPARATE collection (memory.md section 5), so the entries
+    query above never sees them — this is the step that actually surfaces report findings
+    (lab values, whole-report summaries) into the Reasoning agent's context.
+    """
+    if not text:
+        return []
+    try:
+        res = get_reports_collection().query(
+            query_texts=[text],
+            n_results=settings.MEMORY_TOPK,
+            where={"patient_id": patient_id},
+        )
+    except Exception:
+        return []
+    docs = (res.get("documents") or [[]])[0]
+    metas = (res.get("metadatas") or [[]])[0]
+    dists = (res.get("distances") or [[]])[0]
+    return [
+        {"text": d, "metadata": m, "distance": dist}
+        for d, m, dist in zip(docs, metas, dists)
+    ]
+
+
 def memory_node(state: GraphState) -> dict:
     ne = state.new_entry or {}
     entry_id = ne.get("entry_id")
@@ -40,6 +66,7 @@ def memory_node(state: GraphState) -> dict:
     pid = state.patient_id
 
     semantic = _semantic_matches(pid, entry_id, text)
+    report_hits = _report_matches(pid, text)
 
     with SessionLocal() as db:
         active_problems = db.scalars(
@@ -65,6 +92,13 @@ def memory_node(state: GraphState) -> dict:
 
         context_bundle = {
             "semantic_matches": semantic,
+            "report_matches": report_hits,
+            "lab_trends": [
+                {"vital_type": v.vital_type, "latest": v.latest, "trend": v.trend,
+                 "delta_pct": v.delta_pct}
+                for v in vitals
+                if (v.vital_type or "").startswith("lab_")
+            ],
             "active_problems": [
                 {
                     "id": p.id,

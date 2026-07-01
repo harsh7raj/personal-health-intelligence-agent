@@ -14,8 +14,8 @@ import { useAuth } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
 const NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/log", label: "Log", icon: PlusCircle },
+  { to: "/", label: "Log", icon: PlusCircle, end: true },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/vitals", label: "Vitals", icon: Activity },
   { to: "/story", label: "Story", icon: BookOpen },
   { to: "/medications", label: "Medications", icon: Pill },
@@ -27,7 +27,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { patient, logout } = useAuth()
   return (
     <div className="flex min-h-screen">
-      <aside className="flex w-60 shrink-0 flex-col bg-slate-900 text-slate-300">
+      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col bg-slate-900 text-slate-300">
         <div className="flex items-center gap-2.5 px-6 py-6">
           <span className="h-2.5 w-2.5 rounded-full bg-primary" />
           <span className="font-semibold tracking-tight text-white">Health Intelligence</span>

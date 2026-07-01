@@ -181,3 +181,85 @@ class ProblemTimelinePoint(BaseModel):
 class ProblemTimelineOut(BaseModel):
     problem: ProblemTimelineProblem
     points: list[ProblemTimelinePoint]
+
+
+# ---------- Medication intelligence (reference info + sourced interactions) ----------
+
+
+class DrugReference(BaseModel):
+    used_for: str
+    timing: str
+    considerations: str
+    source: str
+    provenance: str = "medlineplus"  # "medlineplus" | "ai"
+
+
+class MedIntelMedication(BaseModel):
+    id: int
+    name: str
+    dose: Optional[str] = None
+    normalized: str
+    reference: Optional[DrugReference] = None
+
+
+class MedIntelInteraction(BaseModel):
+    drug_a: str
+    drug_b: str
+    status: str  # "known" | "none_known"
+    level: Optional[str] = None  # Major|Moderate|Minor|Unknown (when known)
+    source: str
+    advice: Optional[str] = None
+    note: Optional[str] = None
+
+
+class MedIntelOut(BaseModel):
+    medications: list[MedIntelMedication]
+    interactions: list[MedIntelInteraction]
+    known_interaction_count: int
+    pairs_checked: int
+    disclaimer: str
+    interaction_source: str
+    reference_source_url: str
+
+
+# ---------- Medication dose tracker (2-week rolling calendar) ----------
+
+
+class DoseSlot(BaseModel):
+    medication_id: int
+    name: str
+    dose: Optional[str] = None
+    time: str  # "HH:MM"
+    timing: Optional[str] = None  # reused per-drug reference guidance ("with food")
+    taken: bool
+    markable: bool  # past/today slots can be marked; future slots cannot
+
+
+class CalendarDay(BaseModel):
+    date: date_type
+    is_today: bool
+    is_future: bool
+    slots: list[DoseSlot]
+
+
+class CalendarMedication(BaseModel):
+    id: int
+    name: str
+    dose: Optional[str] = None
+    purpose: str
+    color_index: int
+
+
+class CalendarGroup(BaseModel):
+    purpose: str
+    medications: list[CalendarMedication]
+
+
+class MedCalendarOut(BaseModel):
+    start_date: date_type
+    end_date: date_type
+    today: date_type
+    days: list[CalendarDay]
+    groups: list[CalendarGroup]
+    medication_count: int
+    disclaimer: str

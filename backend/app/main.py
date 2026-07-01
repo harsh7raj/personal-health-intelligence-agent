@@ -9,6 +9,7 @@ from app.api.routes import (
     auth,
     background,
     doctor_access,
+    entries,
     health,
     intake,
     medications,
@@ -59,6 +60,7 @@ def create_app() -> FastAPI:
     app.include_router(symptoms.router, prefix=settings.API_PREFIX)
     app.include_router(reports.router, prefix=settings.API_PREFIX)
     app.include_router(intake.router, prefix=settings.API_PREFIX)
+    app.include_router(entries.router, prefix=settings.API_PREFIX)
     app.include_router(outputs.router, prefix=settings.API_PREFIX)
     app.include_router(timeline.router, prefix=settings.API_PREFIX)
     app.include_router(alerts.router, prefix=settings.API_PREFIX)

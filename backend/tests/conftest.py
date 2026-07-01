@@ -31,6 +31,9 @@ class _FakeCollection:
     def count(self):
         return 0
 
+    def upsert(self, **_kw):
+        return None
+
     def query(self, **_kw):
         return {"documents": [[]], "metadatas": [[]], "distances": [[]]}
 
@@ -94,6 +97,10 @@ def client(monkeypatch):
         "app.vectorstore.collections",
     ):
         monkeypatch.setattr(f"{mod}.get_entries_collection", lambda: fake, raising=False)
+    # Reports live in a separate collection the Memory node now also queries.
+    monkeypatch.setattr(
+        "app.graph.nodes.memory.get_reports_collection", lambda: fake, raising=False
+    )
     monkeypatch.setattr("app.graph.nodes.intake.parse_entry", _stub_parse)
 
     import app.main as main_mod

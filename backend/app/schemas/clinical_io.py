@@ -9,6 +9,9 @@ class MedicationCreate(BaseModel):
     name: str
     dose: Optional[str] = None
     frequency: Optional[str] = None
+    dose_times: list[str] = Field(default_factory=list)
+    interval_days: Optional[int] = None
+    purpose: Optional[str] = None
     started_on: Optional[date] = None
     active: bool = True
     attributes: dict[str, Any] = Field(default_factory=dict)
@@ -18,6 +21,9 @@ class MedicationUpdate(BaseModel):
     name: Optional[str] = None
     dose: Optional[str] = None
     frequency: Optional[str] = None
+    dose_times: Optional[list[str]] = None
+    interval_days: Optional[int] = None
+    purpose: Optional[str] = None
     started_on: Optional[date] = None
     active: Optional[bool] = None
     attributes: Optional[dict[str, Any]] = None
@@ -31,11 +37,20 @@ class MedicationOut(BaseModel):
     name: str
     dose: Optional[str] = None
     frequency: Optional[str] = None
+    dose_times: list[str] = Field(default_factory=list)
+    interval_days: int = 1
+    purpose: Optional[str] = None
     started_on: Optional[date] = None
     active: bool
     attributes: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
+
+
+# --- Dose log (adherence tracking) ---
+class DoseMark(BaseModel):
+    scheduled_date: date
+    scheduled_time: str  # "HH:MM"
 
 
 # --- Vitals (raw readings) ---
@@ -68,6 +83,19 @@ class SymptomCreate(BaseModel):
 
 
 class SymptomOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    patient_id: int
+    type: str
+    raw_text: Optional[str] = None
+    structured: dict[str, Any] = Field(default_factory=dict)
+    source: Optional[str] = None
+    created_at: datetime
+
+
+# --- Entries (full append-only history, all types) ---
+class EntryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int

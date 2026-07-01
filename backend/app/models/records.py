@@ -1,6 +1,7 @@
+from datetime import date
 from typing import Any
 
-from sqlalchemy import BigInteger, ForeignKey, String, Text, text
+from sqlalchemy import BigInteger, Date, ForeignKey, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -38,6 +39,22 @@ class Report(CreatedAtMixin, Base):
     path: Mapped[str] = mapped_column(String(1024), nullable=False)
     report_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Report extraction pipeline (Part 1). Lifecycle:
+    #   uploaded -> parsing -> parsed | failed
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="uploaded", server_default=text("'uploaded'")
+    )
+    test_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Raw text pulled from the file (PDF/plain text). Feeds Chroma embedding in Part 2.
+    extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Structured lab values [{test_name, value, unit, reference_range, flag}, ...].
+    extracted_values: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
+    # 1-2 sentence plain-language, non-diagnostic takeaway generated at parse time.
+    ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    parse_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class MemoryLog(CreatedAtMixin, Base):

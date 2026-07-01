@@ -13,6 +13,7 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    func,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -32,12 +33,56 @@ class Medication(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     dose: Mapped[str | None] = mapped_column(String(128), nullable=True)
     frequency: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # Structured dose schedule: list of "HH:MM" strings the dose-tracker calendar
+    # expands into per-day slots. `frequency` stays as the human-readable label.
+    dose_times: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
+    # How many days apart the schedule repeats: 1 = every day, 2 = every other day,
+    # 3 = every 3 days, 7 = weekly. The calendar phases doses off the start anchor
+    # (started_on, else the row's creation date) so "once every 3 days" lands correctly.
+    interval_days: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default=text("1")
+    )
+    # Free-text grouping ("eye strain", "blood pressure") used to cluster meds in the
+    # tracker. Null is rendered as "Other".
+    purpose: Mapped[str | None] = mapped_column(String(128), nullable=True)
     started_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("true")
     )
     attributes: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
+
+
+class DoseLog(CreatedAtMixin, Base):
+    """Adherence record — one row per dose the patient marked 'taken'. Distinct from the
+    medications table: this accrues over time. A row present means that scheduled slot was
+    taken; absence simply means not-yet-taken (no 'missed' rows are ever written, so the
+    tracker never frames a gap as a medical judgement)."""
+
+    __tablename__ = "dose_logs"
+    __table_args__ = (
+        UniqueConstraint(
+            "medication_id",
+            "scheduled_date",
+            "scheduled_time",
+            name="uq_dose_log_slot",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    patient_id: Mapped[int] = mapped_column(
+        ForeignKey("patients.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    medication_id: Mapped[int] = mapped_column(
+        ForeignKey("medications.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    scheduled_date: Mapped[date] = mapped_column(Date, nullable=False)
+    scheduled_time: Mapped[str] = mapped_column(String(5), nullable=False)  # "HH:MM"
+    taken_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
 

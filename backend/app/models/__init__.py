@@ -4,6 +4,7 @@
 from app.db.base import Base
 from app.models.access import DoctorAccess
 from app.models.clinical import (
+    DoseLog,
     Medication,
     Problem,
     SymptomCluster,
@@ -18,6 +19,7 @@ from app.models.intelligence import (
 )
 from app.models.patient import MedicalBackground, Patient
 from app.models.records import Entry, MemoryLog, Report
+from app.models.reference import DrugInteraction
 from app.models.user import User
 
 __all__ = [
@@ -26,6 +28,7 @@ __all__ = [
     "Patient",
     "MedicalBackground",
     "Medication",
+    "DoseLog",
     "Problem",
     "VitalReading",
     "VitalSummary",
@@ -38,4 +41,5 @@ __all__ = [
     "Report",
     "MemoryLog",
     "DoctorAccess",
+    "DrugInteraction",
 ]

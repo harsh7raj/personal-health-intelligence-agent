@@ -19,7 +19,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.core.security import hash_password
 from app.db.session import SessionLocal
-from app.models.clinical import Medication, Problem, SymptomCluster, VitalReading
+from app.models.clinical import DoseLog, Medication, Problem, SymptomCluster, VitalReading
 from app.models.intelligence import Observation
 from app.models.patient import MedicalBackground, Patient
 from app.models.records import Entry
@@ -94,8 +94,39 @@ def seed() -> None:
                 lifestyle={"smoking": False, "alcohol": "occasional", "exercise": "light"},
             )
         )
-        db.add(Medication(patient_id=pid, name="Amlodipine", dose="5mg", frequency="once daily"))
-        db.add(Medication(patient_id=pid, name="Vitamin D", dose="1000 IU", frequency="once daily"))
+        meds = [
+            Medication(patient_id=pid, name="Amlodipine", dose="5mg",
+                       frequency="once daily", dose_times=["09:00"], purpose="Blood pressure"),
+            Medication(patient_id=pid, name="Hydrochlorothiazide", dose="12.5mg",
+                       frequency="once daily", dose_times=["09:00"], purpose="Blood pressure"),
+            Medication(patient_id=pid, name="Simvastatin", dose="20mg",
+                       frequency="once daily", dose_times=["21:00"], purpose="Cholesterol"),
+            Medication(patient_id=pid, name="Vitamin D", dose="1000 IU",
+                       frequency="once daily", dose_times=["09:00"], purpose="Bone health"),
+            # Two eye drops sharing a purpose → demonstrates condition grouping in the tracker.
+            Medication(patient_id=pid, name="Carboxymethylcellulose drops", dose="1 drop",
+                       frequency="twice daily", dose_times=["08:00", "20:00"], purpose="Eye strain"),
+            Medication(patient_id=pid, name="Hypromellose drops", dose="1 drop",
+                       frequency="three times daily", dose_times=["08:00", "14:00", "20:00"],
+                       purpose="Eye strain"),
+        ]
+        for _med in meds:
+            db.add(_med)
+        db.flush()
+
+        # Adherence history: mark most of the last 6 days' doses taken (a couple skipped) so
+        # the tracker shows a real, slightly imperfect record on first load. Use the same
+        # local date basis as the calendar service (date.today()) so history lines up.
+        _today = datetime.now().date()
+        for _med in meds:
+            for _back in range(1, 7):
+                _day = _today - timedelta(days=_back)
+                for _i, _t in enumerate(_med.dose_times):
+                    # Skip one evening dose a few days back to keep it realistic.
+                    if _back == 3 and _i == len(_med.dose_times) - 1:
+                        continue
+                    db.add(DoseLog(patient_id=pid, medication_id=_med.id,
+                                   scheduled_date=_day, scheduled_time=_t))
 
         # --- Vitals over ~1 year, high density ---
         # BP every ~2 weeks. A gentle first half then a steeper recent climb so the

@@ -34,6 +34,7 @@ def _run(patient_id: int, text: str) -> IntakeOut:
         status="processed",
         new_entry=_get(result, "new_entry"),
         context_bundle=_get(result, "context_bundle"),
+        reasoning_summary=_get(result, "reasoning_summary"),
     )
 
 
