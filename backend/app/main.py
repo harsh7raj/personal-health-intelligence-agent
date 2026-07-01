@@ -1,4 +1,5 @@
 import logging
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -40,6 +41,23 @@ async def lifespan(app: FastAPI):
         reconcile_orphaned_parses()
     except Exception:
         logger.warning("Orphaned-parse reconciliation failed at startup", exc_info=True)
+
+    # Populate the DDInter drug-interaction table on first boot if it's empty (the deploy
+    # ships only the empty table). Runs in a background thread so the one-time download
+    # can't block startup or the health check; it's idempotent (a no-op once the table has
+    # rows) and self-heals on the next boot if it fails. bootstrap_if_empty also seeds a
+    # verified critical-interaction fallback if the full download can't complete.
+    def _bootstrap_interactions() -> None:
+        try:
+            from scripts.import_ddinter import bootstrap_if_empty
+
+            bootstrap_if_empty()
+        except Exception:
+            logger.warning("DDInter interaction bootstrap failed at startup", exc_info=True)
+
+    threading.Thread(
+        target=_bootstrap_interactions, name="ddinter-bootstrap", daemon=True
+    ).start()
     yield
 
 

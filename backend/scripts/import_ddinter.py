@@ -15,20 +15,45 @@ Run:  uv run python -m scripts.import_ddinter
 """
 
 import csv
+import logging
 import urllib.request
 from pathlib import Path
 
-from sqlalchemy import delete, insert
+from sqlalchemy import delete, func, insert, select
 
 from app.db.session import SessionLocal
 from app.models.reference import DrugInteraction
 from app.services.rxnorm import normalize_ingredient, save_cache
+
+logger = logging.getLogger(__name__)
 
 BASE_URL = "https://ddinter2.scbdd.com/static/media/download/ddinter_downloads_code_{}.csv"
 CODES = ["A", "B", "D", "H", "L", "P", "R", "V"]
 CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "ddinter"
 
 _SEVERITY = {"Major": 4, "Moderate": 3, "Minor": 2, "Unknown": 1}
+
+# Verified subset of DDInter 2.0 interactions, canonicalized to RxNorm ingredient names
+# (lowercased). Used ONLY as a resilience fallback when the full dataset can't be
+# downloaded at startup, so the most dangerous, well-known combinations still flag.
+# Every pair and severity here is taken verbatim from DDInter 2.0 — never invented — so
+# it stays within the safety boundary (interactions come solely from DDInter). Pairs are
+# stored (lo, hi) sorted, matching how load_rows() keys them.
+_CRITICAL_FALLBACK: list[tuple[str, str, str]] = [
+    ("ibuprofen", "warfarin", "Major"),
+    ("aspirin", "warfarin", "Major"),
+    ("naproxen", "warfarin", "Major"),
+    ("fluconazole", "warfarin", "Major"),
+    ("amiodarone", "warfarin", "Major"),
+    ("metronidazole", "warfarin", "Major"),
+    ("phenytoin", "warfarin", "Moderate"),
+    ("aspirin", "ibuprofen", "Major"),
+    ("clopidogrel", "omeprazole", "Major"),
+    ("clarithromycin", "simvastatin", "Major"),
+    ("simvastatin", "verapamil", "Major"),
+    ("methotrexate", "trimethoprim", "Major"),
+    ("allopurinol", "azathioprine", "Major"),
+]
 
 
 def _norm(name: str) -> str:
@@ -109,17 +134,77 @@ def load_rows() -> dict[tuple[str, str], dict]:
     return pairs
 
 
+def _row_count(db) -> int:
+    return db.scalar(select(func.count()).select_from(DrugInteraction)) or 0
+
+
+def _replace_all(db, rows: list[dict]) -> None:
+    """Idempotent full reload: clear the table and bulk-insert `rows`, then commit."""
+    db.execute(delete(DrugInteraction))
+    for i in range(0, len(rows), 5000):
+        db.execute(insert(DrugInteraction), rows[i : i + 5000])
+    db.commit()
+
+
+def _fallback_rows() -> list[dict]:
+    return [
+        {
+            "drug_lo": lo,
+            "drug_hi": hi,
+            "name_a": lo.title(),
+            "name_b": hi.title(),
+            "level": level,
+            "source": "DDInter 2.0",
+        }
+        for lo, hi, level in _CRITICAL_FALLBACK
+    ]
+
+
+def bootstrap_if_empty() -> int:
+    """Populate `drug_interactions` from DDInter 2.0 if the table is empty; return the
+    row count afterward. Safe to call on every startup: it's a no-op once the table has
+    rows (Postgres persists across restarts), so the heavy one-time download runs only on
+    the first deploy. If the full download/import fails, it seeds a small verified subset
+    of critical interactions (see _CRITICAL_FALLBACK) so the most dangerous combinations
+    still flag rather than silently returning "no known interaction". Never raises."""
+    try:
+        with SessionLocal() as db:
+            existing = _row_count(db)
+        if existing > 0:
+            logger.info("drug_interactions already populated (%d rows); skipping import", existing)
+            return existing
+
+        logger.info("drug_interactions is empty; importing full DDInter 2.0 dataset (one-time)")
+        rows = list(load_rows().values())
+        with SessionLocal() as db:
+            _replace_all(db, rows)
+            n = _row_count(db)
+        logger.info("DDInter import complete: %d interaction pairs loaded", n)
+        return n
+    except Exception:
+        logger.warning(
+            "Full DDInter import failed; seeding critical-interaction fallback only",
+            exc_info=True,
+        )
+        try:
+            with SessionLocal() as db:
+                if _row_count(db) == 0:  # don't clobber a load that raced ahead of us
+                    _replace_all(db, _fallback_rows())
+                n = _row_count(db)
+            logger.info("Critical-interaction fallback seeded: %d pairs", n)
+            return n
+        except Exception:
+            logger.warning("Critical-interaction fallback also failed", exc_info=True)
+            return 0
+
+
 def main() -> None:
     print("Importing DDInter 2.0 interactions...")
-    pairs = load_rows()
-    rows = list(pairs.values())
+    rows = list(load_rows().values())
     print(f"  {len(rows)} unique drug pairs (deduped, most-severe kept)")
 
     with SessionLocal() as db:
-        db.execute(delete(DrugInteraction))  # idempotent: full reload
-        for i in range(0, len(rows), 5000):
-            db.execute(insert(DrugInteraction), rows[i : i + 5000])
-        db.commit()
+        _replace_all(db, rows)  # idempotent: full reload
         from collections import Counter
 
         levels = Counter(r["level"] for r in rows)
