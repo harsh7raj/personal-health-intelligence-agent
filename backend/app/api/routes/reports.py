@@ -18,11 +18,20 @@ from sqlalchemy.orm import Session
 from app.api.deps import DbSession, OwnedPatient
 from app.core.config import get_settings
 from app.models.records import Report
-from app.schemas.report import ReportOut
+from app.schemas.report import (
+    FlaggedValue,
+    ReportDetail,
+    ReportListItem,
+    ReportOut,
+)
 from app.services.report_extraction import parse_report
 
 settings = get_settings()
 router = APIRouter(prefix="/patients", tags=["reports"])
+
+# Values are shown in the list preview when non-normal; high/low rank above "unknown".
+_FLAG_PRIORITY = {"high": 0, "low": 0, "unknown": 1}
+_FLAGGED_PREVIEW_CAP = 3
 
 
 def _get_report(db: Session, patient_id: int, report_id: int) -> Report:
@@ -32,6 +41,40 @@ def _get_report(db: Session, patient_id: int, report_id: int) -> Report:
             status_code=status.HTTP_404_NOT_FOUND, detail="Report not found"
         )
     return report
+
+
+def _flagged_values(report: Report) -> list[dict]:
+    """Extracted values whose flag is not 'normal', most-clinically-notable first."""
+    flagged = [
+        v
+        for v in (report.extracted_values or [])
+        if str(v.get("flag") or "").lower() != "normal"
+    ]
+    flagged.sort(key=lambda v: _FLAG_PRIORITY.get(str(v.get("flag") or "").lower(), 2))
+    return flagged
+
+
+def _to_list_item(report: Report) -> ReportListItem:
+    flagged = _flagged_values(report)
+    return ReportListItem(
+        id=report.id,
+        patient_id=report.patient_id,
+        filename=report.filename,
+        status=report.status,
+        report_type=report.report_type,
+        test_date=report.test_date,
+        ai_summary=report.ai_summary,
+        flagged_values=[
+            FlaggedValue.model_validate(v) for v in flagged[:_FLAGGED_PREVIEW_CAP]
+        ],
+        flagged_count=len(flagged),
+        parse_error=report.parse_error,
+        created_at=report.created_at,
+    )
+
+
+def _download_url(patient_id: int, report_id: int) -> str:
+    return f"{settings.API_PREFIX}/patients/{patient_id}/reports/{report_id}/file"
 
 
 @router.post(
@@ -71,18 +114,34 @@ def upload_report(
     return report
 
 
-@router.get("/{patient_id}/reports", response_model=list[ReportOut])
-def list_reports(patient: OwnedPatient, db: DbSession) -> list[Report]:
-    return list(
-        db.scalars(
-            select(Report).where(Report.patient_id == patient.id).order_by(Report.id)
-        ).all()
+@router.get("/{patient_id}/reports", response_model=list[ReportListItem])
+def list_reports(patient: OwnedPatient, db: DbSession) -> list[ReportListItem]:
+    # Newest first — the report list is a reverse-chronological feed.
+    reports = db.scalars(
+        select(Report)
+        .where(Report.patient_id == patient.id)
+        .order_by(Report.id.desc())
+    ).all()
+    return [_to_list_item(r) for r in reports]
+
+
+@router.get("/{patient_id}/reports/{report_id}", response_model=ReportDetail)
+def get_report(patient: OwnedPatient, report_id: int, db: DbSession) -> ReportDetail:
+    report = _get_report(db, patient.id, report_id)
+    return ReportDetail(
+        id=report.id,
+        patient_id=report.patient_id,
+        filename=report.filename,
+        report_type=report.report_type,
+        summary=report.summary,
+        status=report.status,
+        test_date=report.test_date,
+        extracted_values=report.extracted_values or [],
+        ai_summary=report.ai_summary,
+        parse_error=report.parse_error,
+        created_at=report.created_at,
+        download_url=_download_url(patient.id, report.id),
     )
-
-
-@router.get("/{patient_id}/reports/{report_id}", response_model=ReportOut)
-def get_report(patient: OwnedPatient, report_id: int, db: DbSession) -> Report:
-    return _get_report(db, patient.id, report_id)
 
 
 @router.get("/{patient_id}/reports/{report_id}/file")

@@ -390,6 +390,35 @@ def parse_report(report_id: int) -> None:
             db.commit()
 
 
+def reconcile_orphaned_parses() -> int:
+    """Fail any report still stuck in 'parsing' from a prior process.
+
+    Extraction runs as a FastAPI BackgroundTask, which does NOT survive a process
+    restart/crash. Any row left in 'parsing' at startup is orphaned — its worker is
+    gone and it would otherwise sit in 'parsing' forever. We flip those to 'failed'
+    with a clear parse_error so the record is never stuck and the patient can re-upload.
+
+    Returns the number of reports reconciled. Called at app startup (best-effort).
+    """
+    with SessionLocal() as db:
+        orphaned = list(
+            db.scalars(select(Report).where(Report.status == "parsing")).all()
+        )
+        for report in orphaned:
+            report.status = "failed"
+            report.parse_error = (
+                "Parsing was interrupted before it finished (the server restarted "
+                "mid-parse). Please re-upload the report to try again."
+            )
+        if orphaned:
+            db.commit()
+            logger.warning(
+                "reconcile_orphaned_parses: marked %d stuck report(s) as failed",
+                len(orphaned),
+            )
+        return len(orphaned)
+
+
 def extraction_summary(report: Report) -> str:
     """Human-readable one-liner (handy for the test script / logs)."""
     return json.dumps(

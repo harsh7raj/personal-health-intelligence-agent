@@ -22,6 +22,7 @@ from app.api.routes import (
     vitals,
 )
 from app.core.config import get_settings
+from app.services.report_extraction import reconcile_orphaned_parses
 from app.vectorstore.collections import bootstrap_collections
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,11 @@ async def lifespan(app: FastAPI):
         bootstrap_collections()
     except Exception:
         logger.warning("Chroma collection bootstrap failed at startup", exc_info=True)
+    # Rescue reports orphaned in 'parsing' by a prior process that died mid-parse.
+    try:
+        reconcile_orphaned_parses()
+    except Exception:
+        logger.warning("Orphaned-parse reconciliation failed at startup", exc_info=True)
     yield
 
 

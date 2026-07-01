@@ -373,6 +373,30 @@ pytest suite vs `phia_test` (D11), non-diagnostic guard + audit (D12), loose-end
 
 ## 9. Work Log (newest first)
 
+- **2026-07-01** — **Part 3: expose report intelligence through the API (for Part-4 frontend).** Committed.
+  Reshaped the patient-scoped report endpoints (paths stay `/patients/{id}/reports*` — the whole app is
+  ownership-guarded via `OwnedPatient`; the requirement's bare `/reports` was shorthand). **(1) List**
+  `GET /patients/{id}/reports` now returns a **trimmed `ReportListItem`** (was full `ReportOut`): id,
+  patient_id, filename, status, report_type, test_date, ai_summary, `flagged_values` (only `flag != "normal"`,
+  **capped at 3**, high/low ranked above unknown), `flagged_count` (total, may exceed 3), parse_error,
+  created_at (upload date). Now ordered **newest-first** (`id desc`). **(2) Detail** `GET /.../reports/{id}`
+  returns new **`ReportDetail`**: ALL `extracted_values`, status, ai_summary, parse_error, + a **`download_url`**
+  (`/api/patients/{id}/reports/{id}/file`, the existing FileResponse route) instead of leaking the raw disk
+  `path`. **(3) Upload** `POST /.../reports` unchanged from the user's POV (still 201 immediately with full
+  `ReportOut`, status `uploaded`) — already kicked off the Part-1 `parse_report` BackgroundTask. **(4) Stuck-parse
+  guard:** `parse_report` already sets `status=failed`+`parse_error` on any exception (never stuck), BUT a
+  process crash/restart mid-parse would orphan a row in `parsing` forever (BackgroundTasks don't survive a
+  restart). Added `reconcile_orphaned_parses()` (report_extraction.py), called from the **lifespan startup**
+  (best-effort) → flips any leftover `parsing` → `failed` with a clear "interrupted, please re-upload" message.
+  Schemas in `schemas/report.py` (`ReportListItem`, `ReportDetail`, `FlaggedValue`; `ReportOut` kept for upload).
+  No DB/migration change. Frontend `Report` type + ReportsPage only read id/filename/report_type/created_at, so
+  the richer list shape is a backward-compatible superset (Part 4 will render status/ai_summary/flagged).
+  **Live manual test (demo@phia.health, pid 15, real Groq):** uploaded a lipid panel → 201 `uploaded` instantly
+  → background-parsed to `parsed` (report_type "Lipid Panel", test_date 2026-06-20, 4 values, ai_summary
+  non-diagnostic, 3 flagged high shown/3 total); detail returned all 4 values + working `download_url` (HTTP 200);
+  a binary `.dat` upload → `failed` + `parse_error`, never stuck; forced a row to `parsing` + restarted server →
+  reconciliation logged "marked 1 stuck report(s) as failed" and flipped it. Deleted the junk report; **kept the
+  parsed lipid panel (id 16) as real Part-4 demo content.** ruff clean; **34 pytest pass**; alembic no drift.
 - **2026-07-01** — **Report intelligence pipeline (Parts 1 + 2). Committed.** Turns uploaded reports from a
   dumb file store into a real pipeline ingestion point. **Part 1 (extraction):** `services/report_extraction.py`
   — `pypdf` text extraction (scanned/image PDFs raise `OcrRequiredError`, a flagged **TODO**, never a silent
