@@ -224,16 +224,31 @@ export const listSymptoms = (id: number) =>
   api.get<Symptom[]>(`/patients/${id}/symptoms`).then((r) => r.data)
 export const listEntries = (id: number, limit = 100, offset = 0) =>
   api.get<HistoryEntry[]>(`/patients/${id}/entries`, { params: { limit, offset } }).then((r) => r.data)
+export type ReportStatus = "uploaded" | "parsing" | "parsed" | "failed"
+export interface FlaggedValue {
+  test_name: string
+  value: string | null
+  unit: string | null
+  reference_range: string | null
+  flag: string // "high" | "low" | "unknown"
+}
 export interface Report {
   id: number
   patient_id: number
   filename: string
+  status: ReportStatus
   report_type: string | null
-  summary: string | null
+  test_date: string | null
+  ai_summary: string | null
+  flagged_values: FlaggedValue[]
+  flagged_count: number
+  parse_error: string | null
   created_at: string
 }
 export const listReports = (id: number) =>
   api.get<Report[]>(`/patients/${id}/reports`).then((r) => r.data)
+export const retryReport = (id: number, rid: number) =>
+  api.post<Report>(`/patients/${id}/reports/${rid}/retry`).then((r) => r.data)
 export const uploadReport = (id: number, file: File, report_type?: string, summary?: string) => {
   const fd = new FormData()
   fd.append("file", file)

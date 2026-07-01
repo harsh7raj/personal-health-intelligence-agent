@@ -144,6 +144,42 @@ def get_report(patient: OwnedPatient, report_id: int, db: DbSession) -> ReportDe
     )
 
 
+@router.post(
+    "/{patient_id}/reports/{report_id}/retry",
+    response_model=ReportListItem,
+)
+def retry_report(
+    patient: OwnedPatient,
+    report_id: int,
+    db: DbSession,
+    background: BackgroundTasks,
+) -> ReportListItem:
+    """Re-run extraction for a report that previously failed.
+
+    ``parse_report`` is idempotent — it re-reads the still-on-disk file, resets
+    status, and re-indexes — so retry is just re-scheduling the same background
+    task. We flip the row back to 'parsing' synchronously for immediate UI
+    feedback (and so the list poll picks up the new terminal state).
+    """
+    report = _get_report(db, patient.id, report_id)
+    if report.status == "parsing":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Report is already being parsed",
+        )
+    if not Path(report.path).exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Original file is missing on disk; please re-upload",
+        )
+    report.status = "parsing"
+    report.parse_error = None
+    db.commit()
+    db.refresh(report)
+    background.add_task(parse_report, report.id)
+    return _to_list_item(report)
+
+
 @router.get("/{patient_id}/reports/{report_id}/file")
 def download_report(
     patient: OwnedPatient, report_id: int, db: DbSession
