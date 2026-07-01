@@ -56,6 +56,20 @@ def _payload(state: PatientHealthState) -> dict:
     }
 
 
+def _has_substantive_data(state: PatientHealthState) -> bool:
+    """True only if there's real recorded data to narrate. Prevents the LLM from
+    hallucinating a plausible-but-fabricated story from an empty payload (a brand-new
+    account otherwise gets invented vitals, trends, etc.)."""
+    return bool(
+        state.active_problems
+        or state.resolved_problems
+        or state.vital_summary
+        or state.symptom_clusters
+        or state.ai_observations
+        or state.medical_background.conditions
+    )
+
+
 def _fallback_story(state: PatientHealthState) -> str:
     parts: list[str] = []
     if state.active_problems:
@@ -76,6 +90,9 @@ def _fallback_story(state: PatientHealthState) -> str:
 
 def build_story(db: Session, patient_id: int) -> dict:
     state = assemble_state(db, patient_id)
+    # No real data yet → don't let the LLM invent one; return the deterministic fallback.
+    if not _has_substantive_data(state):
+        return {"story": _fallback_story(state), "generated_by": "fallback"}
     if settings.GROQ_API_KEY:
         try:
             res = groq_json(_SYSTEM, json.dumps(_payload(state)), model=settings.RESPONSE_MODEL)
