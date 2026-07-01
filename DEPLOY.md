@@ -12,7 +12,7 @@ This app has **two parts** that get hosted separately:
 
 Chroma runs embedded (in-process) in production, so there is **no separate vector-DB
 server to host**. The config files are already in the repo:
-`backend/render.yaml`, `backend/start.sh`, `frontend/vercel.json`.
+`render.yaml` (repo root), `backend/start.sh`, `frontend/vercel.json`.
 
 > **Do the steps in this order.** Each step produces a URL or key the next step needs.
 
@@ -36,6 +36,8 @@ server to host**. The config files are already in the repo:
 1. Sign up at <https://render.com> with GitHub.
 2. **New +  →  Blueprint**. Select this repo. Render reads `backend/render.yaml`
    and proposes the `phia-backend` service. Approve it.
+   *(The blueprint file must live at the repo root — it does; the service itself
+   still builds from the `backend/` folder via `rootDir`.)*
 3. Before the first deploy finishes, open the service's **Environment** tab and set:
    - `DATABASE_URL` → the Neon string from step 1 (the `postgresql+psycopg://` one)
    - `GROQ_API_KEY` → your Groq key
