@@ -1,0 +1,16 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   {
+    "text": "On the Diabetes Panel dated 2026-07-11, HbA1c was 7.6% and fasting plasma glucose 152 mg/dL, both flagged above reference ranges. Both are lower than on 2026-04-12, when HbA1c was 8.4% and fasting glucose was 171 mg/dL."
+   },
+   {
+    "text": "Walking has been logged before, including on 2026-04-06 (4 km after dinner) and 2026-05-26 (30-minute evening walk). Both entries described feeling good or fine."
+   },
+   {
+    "text": "Latest blood glucose reading is 155 mg/dL, with blood pressure at 128/85 and weight at 81.7. All three are labeled stable in the recent trend."
+   }
+  ]
+ }
+}

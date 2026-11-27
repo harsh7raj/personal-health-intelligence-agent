@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Headache has now been logged 2 times, both rated mild and stable; a similar mild headache was logged on 2026-04-14 after a long day on screens.",
+   "Blood glucose readings show a rising trend, with the latest at 180.0, up about 7.6% from the prior reading.",
+   "On the Diabetes Panel dated 2026-04-12, HbA1c was 8.4% (reference 4.0-5.6) and fasting plasma glucose was 171 mg/dL (reference 70-100), both flagged high; estimated average glucose was 194 mg/dL."
+  ]
+ }
+}

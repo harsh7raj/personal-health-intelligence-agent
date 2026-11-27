@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Headache has now been logged 4 times, all mild, and the pattern is stable; similar mild headaches were logged on 2026-04-14, 2026-06-05 and 2026-08-23.",
+   "HbA1c was 6.9% on the latest diabetes panel, down from 8.4% on 2026-04-12 and 7.6% on 2026-07-11. Fasting glucose followed the same pattern: 171, 152, then 128 mg/dL.",
+   "Blood glucose, blood pressure and weight readings have all been stable, and shakiness has been logged 3 times."
+  ]
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Heartburn has been logged once so far, with no severity recorded and no earlier similar entries in the data.",
+   "The Diabetes Panel dated 2026-04-12 showed HbA1c of 8.4% (reference 4.0 - 5.6) and fasting plasma glucose of 171 mg/dL (reference 70 - 100), both flagged high.",
+   "The latest blood glucose reading is 155.0 and has been stable. Blood pressure (131/83) and weight (82.6) have also been stable."
+  ]
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "HbA1c was 7.6% on the 2026-07-11 Diabetes Panel, down from 8.4% on 2026-04-12 but still above the 4.0-5.6% reference range. Fasting plasma glucose went from 171 mg/dL to 152 mg/dL over the same period, also flagged high.",
+   "Walks have been logged repeatedly, including 4 km on 2026-04-06, an evening walk on 2026-05-26, 5 km on 2026-07-13 (noted as 'sugar felt steady today'), and 'walked most evenings' on 2026-09-06.",
+   "Fatigue and stiffness are each logged as increasing with 1 episode so far. Headache (3 episodes), knee pain (2) and shakiness (2, decreasing) are stable or decreasing, and recent blood glucose, blood pressure and weight readings are stable."
+  ]
+ }
+}

@@ -1,0 +1,16 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   {
+    "text": "Shakiness has been logged once so far, with no earlier related entries or symptom clusters on record."
+   },
+   {
+    "text": "The latest Diabetes Panel (2026-07-11) showed HbA1c of 7.6% and fasting plasma glucose of 152 mg/dL, both flagged above reference ranges, though both are lower than on 2026-04-12 (HbA1c 8.4%, fasting glucose 171 mg/dL)."
+   },
+   {
+    "text": "The most recent logged blood glucose reading was 153, and glucose, blood pressure and weight readings have all remained stable."
+   }
+  ]
+ }
+}

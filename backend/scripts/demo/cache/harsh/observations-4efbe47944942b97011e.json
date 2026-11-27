@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "HbA1c was 7.6% on the 2026-07-11 Diabetes Panel, down from 8.4% on 2026-04-12, and both values were flagged high against the 4.0-5.6% reference range.",
+   "Fasting plasma glucose was 152 mg/dL on the latest Diabetes Panel, down from 171 mg/dL on 2026-04-12 but still flagged high. Blood glucose readings have also trended downward, with the latest at 153.",
+   "Walks have been logged before, on 2026-05-26 (evening walk, 30 mins) and 2026-04-06 (walked 4 km after dinner), both described as feeling fine or good."
+  ]
+ }
+}

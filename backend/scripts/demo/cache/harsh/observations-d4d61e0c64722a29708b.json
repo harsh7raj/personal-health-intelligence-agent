@@ -1,0 +1,16 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   {
+    "text": "A similar note about poor sleep (about 5 hours, tired the next morning) was logged on 2026-04-28; poor sleep now appears in 2 entries, alongside 1 logged episode of fatigue."
+   },
+   {
+    "text": "HbA1c was 6.9% on the latest Diabetes Panel (2026-10-19), down from 7.6% on 2026-07-11 and 8.4% on 2026-04-12, and still flagged above the 4.0-5.6% reference range."
+   },
+   {
+    "text": "Fasting glucose was 128 mg/dL on the latest Diabetes Panel, down from 152 mg/dL in July, and the latest logged blood glucose reading of 126 mg/dL has been stable."
+   }
+  ]
+ }
+}
