@@ -90,3 +90,14 @@ def test_sub_timeline_links_entries_logged_under_old_variant_names(db):
     timeline = build_problem_timeline(db, pid, problem.id)
     episodes = [p for p in timeline["points"] if p["kind"] == "episode"]
     assert [p["detail"] for p in episodes] == ["bad one"]
+
+
+def test_a_multi_symptom_log_counts_for_each_symptom_it_names(db):
+    from app.services.retrieval import symptom_history
+
+    pid = _patient(db)
+    for name, others in (("shakiness", ["sweating"]), ("dizziness", ["shakiness", "sweating"])):
+        db.add(Entry(patient_id=pid, type="symptom", raw_text="shaky, sweaty, dizzy",
+                     structured={"name": name, "other_symptoms": others}))
+    db.flush()
+    assert len(symptom_history(db, pid, "shaky")) == 2  # one logged as dizziness first

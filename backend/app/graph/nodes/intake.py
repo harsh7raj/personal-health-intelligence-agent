@@ -31,6 +31,8 @@ For BLOOD PRESSURE specifically: ALWAYS put both numbers in attributes as "systo
 - context_tags: circumstances the user STATED, only from this list: "skipped_meal", \
 "delayed_meal", "poor_sleep", "stress", "missed_dose", "alcohol", "exercise", "travel". \
 [] if none. Never guess one they did not mention.
+- other_symptoms: for a symptom log, every OTHER symptom named in the same message as short \
+normalized names (e.g. ["sweating", "dizziness", "palpitations"]); [] if none.
 Normalize lay terms (e.g. "tummy ache" -> "abdominal pain"). Record only what the user states; \
 NEVER infer or name a diagnosis, disease, cause, or treatment — capture the raw symptom/vital/note only."""
 
@@ -82,6 +84,10 @@ def intake_node(state: GraphState) -> dict:
         if canonical != " ".join(str(fact["name"]).lower().split()):
             fact["reported_name"] = fact["name"]
         fact["name"] = canonical
+        others = fact.get("other_symptoms")
+        fact["other_symptoms"] = sorted(
+            {canonical_symptom(o) for o in others if isinstance(o, str) and o.strip()} - {canonical}
+        ) if isinstance(others, list) else []
 
     # Circumstances (skipped meal, poor sleep...): vocabulary-checked LLM tags + keyword rules.
     fact["context_tags"] = merge_tags(fact.get("context_tags"), text)

@@ -28,13 +28,20 @@ def problem_names(problem: Problem) -> set[str]:
 
 
 def episode_entries(db: Session, patient_id: int, names: set[str]) -> list[Entry]:
-    """Symptom entries logged under any of `names`, oldest first by when they happened."""
+    """Symptom entries logged under any of `names` (as the main symptom or one of the other
+    symptoms named in the same log), oldest first by when they happened."""
     rows = db.scalars(
         select(Entry)
         .where(Entry.patient_id == patient_id, Entry.type == "symptom")
         .order_by(Entry.occurred_at)
     ).all()
-    return [e for e in rows if canonical_symptom((e.structured or {}).get("name")) in names]
+    def logged_names(e: Entry) -> set[str]:
+        s = e.structured or {}
+        return {canonical_symptom(s.get("name"))} | {
+            canonical_symptom(o) for o in s.get("other_symptoms") or [] if isinstance(o, str)
+        }
+
+    return [e for e in rows if logged_names(e) & names]
 
 
 def entries_for_problem(db: Session, patient_id: int, problem: Problem) -> list[Entry]:
