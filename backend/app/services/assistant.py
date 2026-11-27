@@ -27,6 +27,7 @@ _CITE = re.compile(r"\[([A-Z]\d+)\]")
 _TOPICS = {  # words in a question -> vital series worth showing
     "blood_glucose": ("sugar", "glucose", "hba1c", "diabet"),
     "bp_systolic": ("bp", "blood pressure", "pressure"),
+    "bp_diastolic": ("bp", "blood pressure", "pressure"),
     "weight": ("weight", "kg"),
     "heart_rate": ("heart rate", "pulse"),
     "spo2": ("oxygen", "spo2"),
@@ -46,7 +47,7 @@ circumstances, not causes) and a medicine change they all came after, then sugge
 next steps the record supports: checking and logging a reading, and raising the pattern with \
 their doctor. If the pack does not answer a question, say so plainly.
 Write 2 to 6 short sentences in plain language, addressed to the user ("you"). Use dates as written.
-Return JSON: {"reply": "<text with [ids]>"}"""
+Return ONLY a JSON object, with no text before or after it: {"reply": "<text with [ids]>"}"""
 
 
 def _mentioned_symptoms(db: Session, patient_id: int, text: str) -> list[str]:
@@ -131,6 +132,8 @@ def build_pack(
                 keep(r)
             summary = _summarize_reading_series(readings)
             if summary:
+                for key in ("first", "latest", "lowest", "highest"):
+                    keep(summary[key])  # anything shown must be citable
                 series[vital_type] = {"summary": summary, "recent": readings[-12:]}
     if series:
         pack["readings"] = series

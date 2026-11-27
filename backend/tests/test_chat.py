@@ -129,3 +129,17 @@ def test_harsh_climax_pack_has_dates_pattern_and_dose_change(client, db, llm_on,
     top = rec["shared_factors"][0]
     assert (top["factor"], top["count"]) == ("tag:skipped_meal", 4)  # 3 earlier + today
     assert rec["all_after_medication_change"][0]["new_dose"] == "2 mg"
+
+
+def test_every_reading_shown_in_the_pack_is_citable(client, db, llm_on):
+    def reply(pack):
+        s = pack["readings"]["bp_systolic"]["summary"]
+        return f"First {s['first']['value']} [{s['first']['id']}], highest {s['highest']['value']} [{s['highest']['id']}]."
+    llm_on(reply)
+    h, pid = _auth(client, "chat-bp@x.com")
+    for i, v in enumerate([118, 150, 131] + [125] * 13):  # older than the last 12 kept in "recent"
+        client.post(f"/api/patients/{pid}/vitals", headers=h, json={
+            "vital_type": "bp_systolic", "value": v,
+            "recorded_at": (datetime.now(timezone.utc) - timedelta(days=60 - i)).isoformat()})
+    r = _say(client, h, pid, "How has my blood pressure been?")
+    assert r["generated_by"] == "llm" and len(r["evidence"]) == 2
