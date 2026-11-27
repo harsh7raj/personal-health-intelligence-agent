@@ -347,6 +347,7 @@ Each check cites its source.
   - reports (dates and values),
   - visits,
   - the live "climax" inputs and what the reply should do.
+  - *Harsh done (`harsh.yaml`); Priya and Ramesh to follow. Log texts are hand-written in the script, not Sonnet-generated (memory.md D32).*
 - [ ] **Generator** (`scripts/demo/generate.py`) expands a script into 6–9 months of data:
   - entries in the patient's own voice (written by Sonnet once),
   - vitals with realistic noise and times of day,
@@ -354,10 +355,12 @@ Each check cites its source.
   - lab PDFs (ReportLab, Indian lab layout, fictional lab name),
   - report files kept aside for live uploads (one as a phone-style photo),
   - visit recaps.
-- [ ] **Replay** (`scripts/demo/replay.py`) feeds everything through the real pipeline in date order, with the clock set to each entry's date (`app/core/clock.py`). That way problems, trends, clusters, observations, and embeddings all come from our own code.
-- [ ] **Cache** every LLM output, keyed by an input hash, in `scripts/demo/cache/*.json`. Also cache the openFDA labels and RxClass lookups. Reseeding then runs offline, costs nothing, and gives identical results.
-- [ ] **Reset:** `uv run python -m scripts.demo reset` wipes and reloads all three patients.
-- [ ] Keep all dates relative to today, so the data is always fresh on demo day.
+  - *Done for entries, vitals, dose logs and lab PDFs. Live-upload files (incl. the phone photo) come with Phase 4; visit recaps with Phase 3.*
+- [x] **Replay** (`scripts/demo/replay.py`) feeds everything through the real pipeline in date order, with the clock set to each entry's date (`app/core/clock.py`). That way problems, trends, clusters, observations, and embeddings all come from our own code.
+- [x] **Cache** every LLM output, keyed by an input hash, in `scripts/demo/cache/*.json`. Also cache the openFDA labels and RxClass lookups. Reseeding then runs offline, costs nothing, and gives identical results.
+  - *LLM cache done (a second reset made 0 live calls, 22 s for Harsh). openFDA/RxClass caching comes with Phase 5.*
+- [x] **Reset:** `uv run python -m scripts.demo reset` wipes and reloads all three patients.
+- [x] Keep all dates relative to today, so the data is always fresh on demo day.
 
 ### Harsh: recurring pattern and the visit loop
 - 52, software manager in Bengaluru, type 2 diabetes for 8 years. Endocrinologist: Dr. Rao.
@@ -375,6 +378,7 @@ Each check cites its source.
   - quote Dr. Rao's instruction,
   - ask him to check and log his sugar,
   - suggest raising the pattern at his next visit.
+  - *Verified with real Sonnet (5 runs): every point except the Dr. Rao quote, which needs Phase 3's visit notes.*
 - **Live 2:** "how have my sugars been since the dose change?"
 - **Live 3 (visit recap):** record a 30-second recap. For example: "Saw Dr. Rao today, she reduced glimepiride back to 1 mg because of the lows, asked me to keep a sugar diary, review in 6 weeks." The note appears; confirming it updates the medicine, logs the dose change, and creates the follow-up reminder. This closes the loop: pattern spotted, discussed with the doctor, dose adjusted.
 
