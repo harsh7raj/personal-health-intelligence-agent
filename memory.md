@@ -322,6 +322,37 @@ anywhere. Rules: no good/bad verdict, general reasons only, no interpretation be
 to the pre-visit brief comes with Phase 3. The report page opens on its own when a report uploaded there
 finishes processing.
 
+### D35 — Medicine sources: ingredients, brands, labels, classes (migration `b23a2243ffd8`)
+`medications.brand_name` + `ingredients` (JSONB); every check runs on ingredients. `rxnorm.lookup` returns all
+ingredients of a product (found / not_found / offline). Unknown brands: Haiku suggests generics
+(`brand_generic`), each re-checked in RxNorm, shown to the user, saved only when they confirm (ground rule);
+a name RxNorm knows is set automatically. `drug_labels` table: openFDA label sections per ingredient
+(interactions, warnings incl. boxed/precautions, contraindications, adverse reactions, dosage), preferring a
+single-ingredient label; a 404 is cached as found=false, an outage is not cached. Source link = DailyMed by
+set_id; openFDA's disclaimer is shown. `drug_classes` table: RxClass EPC, MOA and single-drug ATC classes.
+All reference HTTP goes through `services/http.get_json`, stubbed for the whole test suite. Sentence finder
+keeps a heading with its sentence, skips fragments under 40 chars, de-duplicates repeated Highlights text.
+
+### D36 — Medication safety (`services/med_safety.py`, `GET /medications/safety`)
+Per ingredient pair: (1) Verified = DDInter, severity shown, and nothing below can contradict or downgrade it;
+(2) Official label = code finds label sentences naming the other ingredient (or a synonym) or one of its
+EPC/MOA classes; Sonnet (`med_label`) picks one, copies it and explains it; code accepts the quote only if it
+is verbatim in the cached label AND inside code's sentence, else uses code's sentence; the AI may drop a
+CLASS-based match that doesn't apply (e.g. "calcium channel blockers" vs calcium carbonate) but never a
+name-based one; (3) AI flag (`med_ai_flag`), only with MED_AI_FLAGS_ENABLED, labelled "Unverified, ask your
+pharmacist" + "Don't stop or change any medicine on your own". Any AI text saying safe / no interaction /
+stop / discontinue is replaced by code's wording. Nothing found = exactly "No known interaction found in our
+sources. Confirm with your pharmacist." Patient-aware, each quoting its source: same EPC class from different
+prescribers; a label "N hours" (in the matching sentence or the one after it) vs dose times closer than N;
+label warnings x record (glucose <70 in 180 days, latest eGFR low / creatinine high, ALT/AST high, potassium
+high); a symptom first logged 1-120 days after a start or dose change whose label lists it (small symptom ->
+label-term map); alcohol tag vs labels mentioning alcohol. Results are stored per patient (`med_check_runs`)
+under a signature (check version, medicines, latest entry/reading/report/event ids, AI switch, date) and re-run
+in the background after any add/change, or with Re-check. Assistant: "can I take X?" runs the same check (an
+unknown brand through its verified AI-suggested generics, said as an assumption); a mentioned symptom gets the
+side-effect check; "Ask about this" pins a stored finding by id. The guard now allows naming who prescribed a
+medicine ("Dr. Rao prescribes"); "commonly prescribed for X" is still blocked.
+
 ---
 
 ## 3. PatientHealthState (Pydantic, in-memory shared state)
@@ -558,6 +589,19 @@ pytest suite vs `phia_test` (D11), non-diagnostic guard + audit (D12), loose-end
 ---
 
 ## 9. Work Log (newest first)
+
+- **2026-11-28 (cont. 3)** — **v2 Phase 5: medication safety** (D35, D36). Migration for ingredients + label /
+  class / run tables, brand->generic with confirmation, openFDA labels and RxClass classes cached, three-level
+  pair check, patient-aware checks, assistant tools, safety panel with level badges, quotes, pharmacist
+  questions and "Ask about this". Verified live: Harsh gets DDInter glimepiride+metformin (Moderate), the
+  glimepiride low-sugar warning matched to his 62/66 readings, and dizziness listed in glimepiride's label
+  first logged 30 days after the 1 -> 2 mg change; a throwaway Thyronorm + Shelcal patient got DDInter Moderate
+  plus a timing note quoting the levothyroxine label's "at least 4 hours apart" vs doses 1 h 30 min apart; the
+  AI read a label correctly with a verified quote; Sonnet answered "Can I take ibuprofen?" with both Verified
+  interactions and no all-clear. Fixed from live testing: heading-only quotes, repeated Highlights sentences,
+  the 4-hour rule sitting in the next sentence, finding evidence not citable, the guard blocking "Dr. Rao
+  prescribes". **Tests:** all pass; ruff clean; no migration drift; frontend builds. **Pending:** the
+  visit-note path (Phase 3); food notes; first brand lookup takes ~12 s (then cached).
 
 - **2026-11-28 (cont. 2)** — **v2 Phase 4: report explainer** (D33, D34). Glossary + aliases, numeric
   ranges and code flags, critical values, vision reading of photos/scans (new dependency pypdfium2), new report

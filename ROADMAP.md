@@ -261,48 +261,50 @@ The analyzer already exists (`services/report_extraction.py`, `services/report_i
 **The rule:** the AI can raise a concern, but it can never give the all-clear. A missed interaction is far worse than an extra question to the pharmacist. And an AI flag must never push someone to stop a medicine on their own.
 
 ### Sources and plumbing
-- [ ] **Brand names to generics.** When RxNorm doesn't recognize a name (e.g. Indian brands like "Thyronorm 75" or "Shelcal"):
+- [x] **Brand names to generics.** When RxNorm doesn't recognize a name (e.g. Indian brands like "Thyronorm 75" or "Shelcal"):
   - Haiku suggests the generic ingredients (levothyroxine 75 mcg; calcium carbonate + vitamin D3),
   - the user confirms,
   - the generics are checked against RxNorm,
   - `brand_name` and `ingredients[]` are stored on the medicine, and every check runs on ingredients.
-- [ ] **Label service** (`services/drug_labels.py`): for each ingredient, fetch the openFDA label sections for drug interactions, warnings and precautions, contraindications, adverse reactions, and dosage and administration. Cache them in a `drug_labels` table with a fetched date, so the demo works offline.
-- [ ] **Class service** (`services/drug_classes.py`): look up each ingredient's classes on RxClass (ATC class, mechanism, e.g. "CYP3A4 inhibitors") and cache them.
+- [x] **Label service** (`services/drug_labels.py`): for each ingredient, fetch the openFDA label sections for drug interactions, warnings and precautions, contraindications, adverse reactions, and dosage and administration. Cache them in a `drug_labels` table with a fetched date, so the demo works offline.
+- [x] **Class service** (`services/drug_classes.py`): look up each ingredient's classes on RxClass (ATC class, mechanism, e.g. "CYP3A4 inhibitors") and cache them.
 
 ### Three-level pair check
 Build `services/med_safety.py`, extending `services/med_intel.py`. For each pair of medicines:
-- [ ] **Level 1, Verified:** the pair is in DDInter. Show the severity.
-- [ ] **Level 2, Official label:** the pair isn't in DDInter, but one drug's label mentions the other drug, its ingredient, or one of its classes.
+- [x] **Level 1, Verified:** the pair is in DDInter. Show the severity.
+- [x] **Level 2, Official label:** the pair isn't in DDInter, but one drug's label mentions the other drug, its ingredient, or one of its classes.
   - The AI reads the label sections and must return the exact sentence.
   - Code checks that the quoted sentence really appears in the cached label text, and discards the finding if it doesn't.
-- [ ] **Level 3, AI flag (unverified):** nothing in the sources, but the AI sees a possible concern.
+- [x] **Level 3, AI flag (unverified):** nothing in the sources, but the AI sees a possible concern.
   - Show it with its reasoning, labeled "Unverified, ask your pharmacist", plus "Don't stop or change any medicine on your own."
   - Put this level behind `MED_AI_FLAGS_ENABLED`, so you can switch to sourced-only if your guide prefers.
-- [ ] If nothing fires, say exactly: "No known interaction found in our sources. Confirm with your pharmacist." Never "safe". The AI can never return a "no interaction" result.
-- [ ] DDInter always wins: if a pair is in DDInter, the label and AI levels can't contradict or downgrade it.
+- [x] If nothing fires, say exactly: "No known interaction found in our sources. Confirm with your pharmacist." Never "safe". The AI can never return a "no interaction" result.
+- [x] DDInter always wins: if a pair is in DDInter, the label and AI levels can't contradict or downgrade it.
 
 ### Patient-aware checks
 Each check cites its source.
-- [ ] **Duplicates across doctors:** two medicines in the same class (RxClass) from different prescribers.
-- [ ] **Timing:** a label says to keep two drugs apart (e.g. levothyroxine and calcium about 4 hours apart), and the patient's dose times or logs show them taken together.
-- [ ] **Conditions and lab results:** a label warning matches something in the patient's record, e.g. a kidney warning when a recent report shows reduced kidney function, or a low-sugar warning when the patient has logged low readings.
-- [ ] **Side effects:** when a new symptom appears after a medicine is started or its dose changes (`medication_events`), check whether that drug's label lists the symptom as an adverse reaction. Example: "Ankle swelling is listed in amlodipine's official label, and yours began 3 weeks after the dose increase. Worth mentioning to your doctor." Feed this into the assistant's evidence pack.
-- [ ] Optional: food and alcohol notes from labels when the patient logs them (e.g. alcohol with metformin).
+- [x] **Duplicates across doctors:** two medicines in the same class (RxClass) from different prescribers.
+- [x] **Timing:** a label says to keep two drugs apart (e.g. levothyroxine and calcium about 4 hours apart), and the patient's dose times or logs show them taken together.
+- [x] **Conditions and lab results:** a label warning matches something in the patient's record, e.g. a kidney warning when a recent report shows reduced kidney function, or a low-sugar warning when the patient has logged low readings.
+- [x] **Side effects:** when a new symptom appears after a medicine is started or its dose changes (`medication_events`), check whether that drug's label lists the symptom as an adverse reaction. Example: "Ankle swelling is listed in amlodipine's official label, and yours began 3 weeks after the dose increase. Worth mentioning to your doctor." Feed this into the assistant's evidence pack.
+- [x] Optional: food and alcohol notes from labels when the patient logs them (e.g. alcohol with metformin).
+  - *Alcohol done (from the `alcohol` context tag); food notes not done.*
 
 ### When checks run
-- [ ] When a medicine is added or changed, whether manually or by confirming a visit note.
-- [ ] On demand from the Medications page.
-- [ ] As assistant tools (`med_check`, `side_effect_check`), so the chat can answer "Can I take X with my medicines?" using the same three levels.
+- [x] When a medicine is added or changed, whether manually or by confirming a visit note.
+  - *Manual add/change done; the visit-note path calls the same re-check when Phase 3 lands.*
+- [x] On demand from the Medications page.
+- [x] As assistant tools (`med_check`, `side_effect_check`), so the chat can answer "Can I take X with my medicines?" using the same three levels.
 
 ### UI
-- [ ] Give each finding:
+- [x] Give each finding:
   - a level badge (Verified / Official label / AI flag),
   - the source link and quote,
   - a plain-language explanation,
   - "questions to ask your pharmacist",
   - the disclaimer.
-- [ ] Use severity colors only for Verified findings.
-- [ ] Add an "Ask about this" button that opens the assistant with the finding pinned.
+- [x] Use severity colors only for Verified findings.
+- [x] Add an "Ask about this" button that opens the assistant with the finding pinned.
 
 ---
 
