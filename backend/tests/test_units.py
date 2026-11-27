@@ -70,3 +70,19 @@ def test_pdf_date_format_is_portable():
 
     assert _fmt(datetime(2026, 3, 5)) == "Mar 5, 2026"
     assert _fmt(datetime(2026, 11, 27)) == "Nov 27, 2026"
+
+
+def test_llm_settings_defaults_and_v1_groq_key_alias(monkeypatch):
+    from app.core.config import Settings
+
+    for var in ("FALLBACK_API_KEY", "GROQ_API_KEY", "LLM_TASK_TIERS"):
+        monkeypatch.delenv(var, raising=False)
+    s = Settings(_env_file=None)
+    assert s.FALLBACK_MODEL == "llama-3.3-70b-versatile"
+    assert s.MED_AI_FLAGS_ENABLED is False
+    assert s.LLM_TASK_TIERS["router"] == "fast" and s.LLM_TASK_TIERS["story"] == "smart"
+
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-test")  # a v1 .env keeps working as the fallback
+    assert Settings(_env_file=None).FALLBACK_API_KEY == "gsk-test"
+    monkeypatch.setenv("LLM_TASK_TIERS", '{"story": "fast"}')
+    assert Settings(_env_file=None).LLM_TASK_TIERS == {"story": "fast"}

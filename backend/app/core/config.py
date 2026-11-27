@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -61,6 +62,47 @@ class Settings(BaseSettings):
     # LLM resilience (Phase 8)
     LLM_TIMEOUT: float = 30.0
     LLM_MAX_RETRIES: int = 2
+
+    # ---- v2 LLM routing (memory.md D15): every call goes through app/core/llm.py ----
+    # Primary: the LiteLLM proxy (OpenAI-compatible). Check names via GET {LLM_BASE_URL}/v1/models.
+    LLM_BASE_URL: str = ""
+    LLM_API_KEY: str = ""
+    MODEL_FAST: str = "claude-haiku-5-5"  # small jobs: routing, parsing, extraction
+    MODEL_SMART: str = "claude-sonnet-5-5"  # anything a person reads
+    MODEL_VISION: str = "claude-sonnet-5-5"  # report photos and scans (Phase 4)
+    # Which tier each task uses. Override with JSON in .env, e.g. LLM_TASK_TIERS='{"story":"fast"}'.
+    LLM_TASK_TIERS: dict[str, str] = {
+        "router": "fast",
+        "intake": "fast",
+        "report_extract": "fast",
+        "report_summary": "smart",
+        "observations": "smart",
+        "drug_reference": "smart",
+        "story": "smart",
+    }
+    # Fallback when the proxy fails or isn't configured: Groq. GROQ_API_KEY still works (v1 name).
+    FALLBACK_BASE_URL: str = "https://api.groq.com/openai/v1"
+    FALLBACK_API_KEY: str = Field(
+        default="", validation_alias=AliasChoices("FALLBACK_API_KEY", "GROQ_API_KEY")
+    )
+    FALLBACK_MODEL: str = "llama-3.3-70b-versatile"
+    # Fail over fast: short connect timeout, at most one retry on the proxy.
+    LLM_CONNECT_TIMEOUT: float = 5.0
+    LLM_PRIMARY_MAX_RETRIES: int = 1
+    # Estimated USD per 1M tokens [input, output]; LiteLLM's own cost header wins when present.
+    LLM_PRICES: dict[str, list[float]] = {
+        "claude-sonnet-5-5": [2.0, 10.0],
+        "claude-haiku-5-5": [0.10, 0.50],
+        "llama-3.3-70b-versatile": [0.0, 0.0],  # Groq free tier
+    }
+    # One JSON line per LLM call (task, model, tokens, cost; never prompt text). Empty = off.
+    LLM_USAGE_LOG: str = "llm_usage.jsonl"
+    # Speech-to-text for visit recaps (Phase 3), on the Groq key.
+    STT_MODEL: str = "whisper-large-v3-turbo"
+    # openFDA drug labels (Phase 5); optional, raises the rate limit.
+    OPENFDA_API_KEY: str = ""
+    # Level-3 "AI flag (unverified)" medication findings (Phase 5). Off = sourced-only.
+    MED_AI_FLAGS_ENABLED: bool = False
 
 
 @lru_cache
