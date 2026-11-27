@@ -33,6 +33,13 @@ class Medication(TimestampMixin, Base):
         ForeignKey("patients.id", ondelete="CASCADE"), index=True, nullable=False
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Phase 5 (D35): the brand as written ("Thyronorm 75") and the generic ingredients every
+    # safety check runs on (["levothyroxine"]). Set from RxNorm, or from an AI suggestion
+    # only after the user confirms it.
+    brand_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ingredients: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
     dose: Mapped[str | None] = mapped_column(String(128), nullable=True)
     frequency: Mapped[str | None] = mapped_column(String(128), nullable=True)
     # Structured dose schedule: list of "HH:MM" strings the dose-tracker calendar

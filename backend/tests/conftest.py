@@ -72,8 +72,9 @@ def _no_external_calls(monkeypatch):
     client_factory = llm._client  # tests may swap llm._client; clear the real cache
     client_factory.cache_clear()
     monkeypatch.setattr(llm, "OpenAI", _BlockedLLMClient)
-    # RxNav lookups degrade to the offline alias map / lowercased name.
+    # RxNav, RxClass and openFDA: every reference API call goes through http.get_json.
     monkeypatch.setattr("app.services.rxnorm._get_json", lambda _url: None)
+    monkeypatch.setattr("app.services.http.get_json", lambda *_a, **_k: None)
     yield
     client_factory.cache_clear()
 

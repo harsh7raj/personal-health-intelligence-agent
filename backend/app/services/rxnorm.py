@@ -10,27 +10,16 @@ Endpoint: https://rxnav.nlm.nih.gov/REST/  (no API key required)
 
 import json
 import logging
-import ssl
+import re
 import urllib.parse
-import urllib.request
 from pathlib import Path
+
+from app.services import http
 
 logger = logging.getLogger(__name__)
 
 _BASE = "https://rxnav.nlm.nih.gov/REST"
 _TIMEOUT = 4.0
-
-# Use the certifi CA bundle for TLS verification. Python's default trust store can
-# fail on machines behind a TLS-intercepting proxy ("self-signed certificate in
-# certificate chain"), which silently degraded EVERY name to its raw form and broke
-# both same-drug detection and interaction matching. certifi gives a portable bundle.
-try:
-    import certifi
-
-    _SSL_CTX: ssl.SSLContext | None = ssl.create_default_context(cafile=certifi.where())
-except Exception:  # pragma: no cover - certifi should be installed
-    _SSL_CTX = None
-    logger.warning("certifi unavailable; falling back to default SSL trust store")
 
 # Common brand -> RxNorm ingredient aliases, applied BEFORE any network call so the
 # most common brand/generic pairs canonicalize even when RxNav is unreachable. Keeps
@@ -88,12 +77,8 @@ def _norm(name: str) -> str:
 
 def _get_json(url: str) -> dict | None:
     try:
-        with urllib.request.urlopen(  # noqa: S310 (fixed NLM host)
-            url, timeout=_TIMEOUT, context=_SSL_CTX
-        ) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except Exception:
-        logger.warning("RxNorm request failed: %s", url, exc_info=True)
+        return http.get_json(url, timeout=_TIMEOUT)
+    except http.NotFound:
         return None
 
 
@@ -125,3 +110,46 @@ def normalize_ingredient(name: str) -> str:
 
     _cache[key] = result
     return result
+
+
+# Strengths and forms written after a name ("Thyronorm 75", "Shelcal 500 tablet").
+_STRENGTH = re.compile(r"\s+(\d[\d.,/]*\s*(mg|mcg|µg|g|iu|ml|%)?|tablets?|tabs?|capsules?|caps?|syrup|xr|sr|er|od)\b.*$", re.I)
+
+
+def lookup(name: str) -> dict:
+    """All RxNorm ingredients for a medicine name (D35).
+
+    {"status": "found", "ingredients": [...]} | {"status": "not_found", "ingredients": []} |
+    {"status": "offline", "ingredients": []}. A combination product returns every ingredient.
+    Indian brands are usually not_found: the caller then asks for a confirmed AI suggestion."""
+    key = _norm(name)
+    if not key:
+        return {"status": "not_found", "ingredients": []}
+    if key in _BRAND_ALIASES:
+        return {"status": "found", "ingredients": [_BRAND_ALIASES[key]]}
+    cached = _cache.get(f"ing:{key}")
+    if cached is not None:
+        return {"status": "found" if cached else "not_found", "ingredients": [i for i in cached.split("|") if i]}
+    for candidate in dict.fromkeys([key, _STRENGTH.sub("", key).strip()]):
+        if not candidate:
+            continue
+        data = _get_json(f"{_BASE}/rxcui.json?name={urllib.parse.quote(candidate)}&search=2")
+        if data is None:
+            return {"status": "offline", "ingredients": []}
+        rxcuis = (data.get("idGroup") or {}).get("rxnormId") or []
+        if not rxcuis:
+            continue
+        rel = _get_json(f"{_BASE}/rxcui/{rxcuis[0]}/related.json?tty=IN")
+        if rel is None:
+            return {"status": "offline", "ingredients": []}
+        names = [
+            _norm(p["name"])
+            for g in ((rel.get("relatedGroup") or {}).get("conceptGroup") or [])
+            for p in (g.get("conceptProperties") or []) if p.get("name")
+        ]
+        if names:
+            ingredients = sorted(dict.fromkeys(names))
+            _cache[f"ing:{key}"] = "|".join(ingredients)
+            return {"status": "found", "ingredients": ingredients}
+    _cache[f"ing:{key}"] = ""
+    return {"status": "not_found", "ingredients": []}

@@ -3,6 +3,7 @@
 
 from app.db.base import Base
 from app.models.access import DoctorAccess
+from app.models.drugs import DrugClassInfo, DrugLabel, MedCheckRun
 from app.models.clinical import (
     DoseLog,
     Medication,
@@ -45,4 +46,7 @@ __all__ = [
     "MemoryLog",
     "DoctorAccess",
     "DrugInteraction",
+    "DrugLabel",
+    "DrugClassInfo",
+    "MedCheckRun",
 ]

@@ -7,6 +7,10 @@ from pydantic import BaseModel, ConfigDict, Field
 # --- Medications ---
 class MedicationCreate(BaseModel):
     name: str
+    # Confirmed generic ingredients (and the brand they came from). Omitted: resolved from
+    # RxNorm when it recognises the name; an AI suggestion is never saved unconfirmed.
+    brand_name: Optional[str] = None
+    ingredients: Optional[list[str]] = None
     dose: Optional[str] = None
     frequency: Optional[str] = None
     dose_times: list[str] = Field(default_factory=list)
@@ -21,6 +25,8 @@ class MedicationCreate(BaseModel):
 
 class MedicationUpdate(BaseModel):
     name: Optional[str] = None
+    brand_name: Optional[str] = None
+    ingredients: Optional[list[str]] = None
     dose: Optional[str] = None
     frequency: Optional[str] = None
     dose_times: Optional[list[str]] = None
@@ -41,6 +47,8 @@ class MedicationOut(BaseModel):
     id: int
     patient_id: int
     name: str
+    brand_name: Optional[str] = None
+    ingredients: list[str] = Field(default_factory=list)
     dose: Optional[str] = None
     frequency: Optional[str] = None
     dose_times: list[str] = Field(default_factory=list)
