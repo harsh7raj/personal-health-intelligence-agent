@@ -16,12 +16,11 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "postgresql+psycopg://phia:phia@localhost:5432/phia"
 
-    # Vector store. CHROMA_MODE="cloud" talks to Chroma Cloud (managed, used in
-    # production) via CHROMA_API_KEY/CHROMA_TENANT/CHROMA_DATABASE. CHROMA_MODE="http"
-    # talks to a separate Chroma server (docker-compose, local dev). CHROMA_MODE=
-    # "embedded" runs Chroma in-process with local persistence at CHROMA_PATH — used
-    # for single-service deploys (e.g. Render free tier) so no second server is hosted.
-    CHROMA_MODE: str = "http"
+    # Vector store. CHROMA_MODE="embedded" (default, local dev) runs Chroma in-process
+    # with persistence at CHROMA_PATH, so no separate server is needed. "http" talks to
+    # a separate Chroma server at CHROMA_HOST:CHROMA_PORT; "cloud" talks to Chroma Cloud
+    # via CHROMA_API_KEY/CHROMA_TENANT/CHROMA_DATABASE.
+    CHROMA_MODE: str = "embedded"
     CHROMA_HOST: str = "localhost"
     CHROMA_PORT: int = 8000
     CHROMA_PATH: str = "chroma_data"
