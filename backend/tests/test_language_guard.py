@@ -56,3 +56,15 @@ def test_attributed_doctor_statements_pass_only_when_opted_in(text):
 def test_opt_in_still_blocks_unattributed_sentences():
     text = "Dr. Rao said not to skip meals. You have diabetes."
     assert is_diagnostic(text, allow_attributed=True)
+
+
+@pytest.mark.parametrize("text,flagged", [
+    ("The label for glimepiride, which Dr. Rao prescribes for you, warns about low sugar.", False),
+    ("Your doctor prescribed metformin in 2024.", False),
+    ("Metformin (prescribed by Dr. Mehta) and amlodipine.", False),
+    ("Both prescribers may not know about each other.", False),
+    ("I would prescribe a lower dose.", True),
+    ("This is commonly prescribed for diabetes.", True),
+])
+def test_naming_who_prescribed_is_not_prescribing(text, flagged):
+    assert is_diagnostic(text) is flagged

@@ -39,6 +39,7 @@ from app.services.language_guard import is_diagnostic
 logger = logging.getLogger(__name__)
 
 NO_FINDING = "No known interaction found in our sources. Confirm with your pharmacist."
+CHECK_VERSION = 2  # bump when the checks change, so stored results are re-run
 DONT_CHANGE = "Don't stop or change any medicine on your own."
 DISCLAIMER = ("These checks use DDInter 2.0, official FDA labels (openFDA) and RxClass. They can miss "
               "things and are not medical advice. " + DONT_CHANGE + " Talk to your pharmacist or doctor.")
@@ -497,7 +498,8 @@ def signature(db: Session, pid: int) -> str:
     meds = [(m.id, m.name, m.ingredients, m.dose, m.dose_times, m.prescriber) for m in _active(db, pid)]
     latest = [db.scalar(select(func.max(t.id)).where(t.patient_id == pid))
               for t in (Entry, VitalReading, Report, MedicationEvent)]
-    raw = json.dumps([meds, latest, get_settings().MED_AI_FLAGS_ENABLED, clock.today().isoformat()], default=str)
+    raw = json.dumps([CHECK_VERSION, meds, latest, get_settings().MED_AI_FLAGS_ENABLED, clock.today().isoformat()],
+                     default=str)
     return hashlib.sha256(raw.encode()).hexdigest()
 
 

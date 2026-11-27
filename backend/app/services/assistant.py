@@ -194,21 +194,27 @@ def build_pack(
         pack["glossary"] = [keep(report_explainer.glossary_item(k)) for k in asked if k not in have][:4]
 
     # Medicine safety tools (Phase 5, D36): the same three levels as the Medications page.
+    def keep_finding(f: dict) -> dict:
+        for e in f.get("evidence") or []:  # the readings/logs a finding rests on are citable too
+            if isinstance(e, dict) and e.get("id"):
+                keep(e)
+        return keep(f)
+
     asked = asked_medicine(message)
     if asked:
         check = med_safety.check_new_medicine(db, patient_id, asked)
         pack["med_check"] = {k: check.get(k) for k in ("medicine", "recognized", "assumed", "message")}
-        pack["med_check"]["findings"] = [keep(f) for f in check["findings"][:6]]
+        pack["med_check"]["findings"] = [keep_finding(f) for f in check["findings"][:6]]
     if (focus or {}).get("type") == "med_finding":
         run = db.scalar(select(MedCheckRun).where(MedCheckRun.patient_id == patient_id))
         pinned = next((f for f in ((run.result if run else {}) or {}).get("findings", [])
                        if f["id"] == focus.get("id")), None)
         if pinned:
-            pack["pinned_finding"] = keep(pinned)
+            pack["pinned_finding"] = keep_finding(pinned)
     for name in symptoms[:2]:
         found = med_safety.side_effects_for(db, patient_id, name)
         if found:
-            pack.setdefault("possible_side_effects", []).extend(keep(f) for f in found[:2])
+            pack.setdefault("possible_side_effects", []).extend(keep_finding(f) for f in found[:2])
 
     notes = retrieval.visit_notes(db, patient_id)
     if notes:
@@ -280,7 +286,9 @@ def check_reply(reply: str, items: dict[str, dict]) -> str | None:
     if unknown:
         return f"cites ids not in the pack: {unknown}"
     if is_diagnostic(reply):
-        return "diagnostic wording"
+        from app.services.language_guard import violations
+
+        return f"diagnostic wording: {violations(reply)}"
     return None
 
 

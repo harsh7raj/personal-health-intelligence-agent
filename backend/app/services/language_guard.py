@@ -67,6 +67,15 @@ def _without_attributed_sentences(text: str) -> str:
     return " ".join(s for s in sentences if not _ATTRIBUTED.search(s))
 
 
+# Who prescribed a medicine is a fact from the record, not the AI prescribing (Phase 5):
+# "Dr. Rao prescribes", "your doctor prescribed", "prescribed by Dr. Rao", "prescriber".
+_PRESCRIBER_FACT = re.compile(
+    r"\b(?:dr\.?\s+[a-z][\w'-]*|(?:your|the|a|their|his|her) doctor)\s+(?:has\s+|had\s+|who\s+)?prescrib\w*"
+    r"|\bprescribed by\b|\bprescribers?\b",
+    re.IGNORECASE,
+)
+
+
 def violations(text: str, *, allow_attributed: bool = False) -> list[str]:
     """Return the matched denylist snippets in `text` (empty if clean).
 
@@ -76,6 +85,7 @@ def violations(text: str, *, allow_attributed: bool = False) -> list[str]:
         return []
     if allow_attributed:
         text = _without_attributed_sentences(text)
+    text = _PRESCRIBER_FACT.sub(" ", text)
     return [m.group(0) for pat in _COMPILED for m in [pat.search(text)] if m]
 
 

@@ -271,4 +271,5 @@ def test_assistant_med_check_pinned_finding_and_side_effects(db, no_llm, monkeyp
     pack, items = assistant.build_pack(db, pid, message="what does this mean?", kind="question", new_entry=None,
                                        context_bundle=None, focus={"type": "med_finding", "id": fid})
     assert pack["pinned_finding"]["id"] == fid and fid in items
+    assert all(e["id"] in items for e in pack["pinned_finding"]["evidence"])
     assert "Never say medicines are safe together" in assistant.SYSTEM
