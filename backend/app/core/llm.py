@@ -230,7 +230,7 @@ def _route(
             return json.loads(path.read_text(encoding="utf-8"))["result"]
         result = _route_live(task, system, user, temperature, as_json, max_tokens, images)
         path.write_text(json.dumps({"task": task, "result": result}, ensure_ascii=False, indent=1),
-                        encoding="utf-8")
+                        encoding="utf-8", newline="\n")  # same bytes on every OS
         return result
     return _route_live(task, system, user, temperature, as_json, max_tokens, images)
 
