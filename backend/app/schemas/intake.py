@@ -14,8 +14,11 @@ class IntakeAnswerIn(BaseModel):
 
 
 class IntakeOut(BaseModel):
-    status: str  # "processed" | "clarification_needed"
-    question: Optional[str] = None
+    status: str  # "processed" | "clarification_needed" | "question"
+    question: Optional[str] = None  # the clarifying question, when status is clarification_needed
+    # Router (D21): what the user asked (status "question", or "processed" for a log+question)
+    user_question: Optional[str] = None
+    reply: Optional[str] = None  # status "question": the reply shown instead of logging
     new_entry: Optional[dict[str, Any]] = None
     context_bundle: Optional[dict[str, Any]] = None
     # Already computed by reasoning_node (newly-created observations/alerts, etc.);

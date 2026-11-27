@@ -9,6 +9,12 @@ class GraphState(BaseModel):
     patient_id: int
     raw_input: str = ""
 
+    # set by router_node: "log" | "question" | "both", and the asked part (if any)
+    skip_router: bool = False
+    message_kind: Optional[str] = None
+    user_question: Optional[str] = None
+    assistant_reply: Optional[str] = None
+
     # set by intake_node
     new_entry: Optional[dict[str, Any]] = None
     needs_clarification: bool = False

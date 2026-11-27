@@ -4,7 +4,13 @@ from app.graph.nodes.intake import intake_node
 from app.graph.nodes.memory import memory_node
 from app.graph.nodes.reasoning import reasoning_node
 from app.graph.nodes.response import response_node
+from app.graph.nodes.router import question_node, router_node
 from app.graph.state import GraphState
+
+
+def _route_after_router(state: GraphState) -> str:
+    # Questions are not saved (memory.md D21); logs and "both" go through intake.
+    return "question" if state.message_kind == "question" else "intake"
 
 
 def _route_after_intake(state: GraphState) -> str:
@@ -18,13 +24,19 @@ def _clarify_node(state: GraphState) -> dict:
 
 def build_graph():
     g = StateGraph(GraphState)
+    g.add_node("router", router_node)
+    g.add_node("question", question_node)
     g.add_node("intake", intake_node)
     g.add_node("clarify", _clarify_node)
     g.add_node("memory", memory_node)
     g.add_node("reasoning", reasoning_node)
     g.add_node("response", response_node)
 
-    g.add_edge(START, "intake")
+    g.add_edge(START, "router")
+    g.add_conditional_edges(
+        "router", _route_after_router, {"question": "question", "intake": "intake"}
+    )
+    g.add_edge("question", END)
     g.add_conditional_edges(
         "intake", _route_after_intake, {"clarify": "clarify", "memory": "memory"}
     )

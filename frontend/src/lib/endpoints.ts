@@ -77,8 +77,10 @@ export interface NewEntry {
   raw_text: string
 }
 export interface IntakeResult {
-  status: "processed" | "clarification_needed"
-  question?: string | null
+  status: "processed" | "clarification_needed" | "question"
+  question?: string | null // clarifying question
+  user_question?: string | null // what the user asked (router)
+  reply?: string | null // status "question": shown instead of logging
   new_entry?: NewEntry | null
   context_bundle?: { semantic_matches?: SemanticMatch[] } & Record<string, unknown> | null
   reasoning_summary?: ReasoningSummary | null

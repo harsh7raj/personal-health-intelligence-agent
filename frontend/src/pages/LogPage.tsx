@@ -38,15 +38,21 @@ function summarizeExtracted(structured: Record<string, unknown>): string {
 interface Intel {
   matches: SemanticMatch[]
   reasoning: ReasoningSummary
+  userQuestion?: string | null
 }
 
 function IntelCards({ intel }: { intel: Intel }) {
   const strong = intel.matches.filter((m) => m.distance < 1.0).slice(0, 2)
   const obs = intel.reasoning.observations ?? []
   const alerts = intel.reasoning.alerts ?? []
-  if (!strong.length && !obs.length && !alerts.length) return null
+  if (!strong.length && !obs.length && !alerts.length && !intel.userQuestion) return null
   return (
     <div className="mt-2 space-y-2">
+      {intel.userQuestion && (
+        <p className="rounded-lg border border-border bg-background/60 px-3 py-2 text-sm text-muted-foreground">
+          Noted your question: “{intel.userQuestion}”. Answers from your history are coming soon.
+        </p>
+      )}
       {strong.length > 0 && (
         <div className="rounded-lg border border-border bg-background/60 p-3 text-sm">
           <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -115,7 +121,7 @@ function ThreadRow({ entry, intel }: { entry: HistoryEntry; intel?: Intel }) {
 }
 
 // ---------- free-text composer with bounded multi-turn clarify ----------
-function Composer({ pid, onProcessed }: { pid: number; onProcessed: (r: IntakeResult) => void }) {
+function Composer({ pid, onProcessed }: { pid: number; onProcessed: (r: IntakeResult, text: string) => void }) {
   const [text, setText] = useState("")
   const [base, setBase] = useState<string | null>(null) // accumulated transcript while clarifying
   const [question, setQuestion] = useState<string | null>(null)
@@ -136,7 +142,7 @@ function Composer({ pid, onProcessed }: { pid: number; onProcessed: (r: IntakeRe
         setQuestion(res.question ?? "Could you add a bit more detail?")
         setRound(1)
       } else {
-        onProcessed(res)
+        onProcessed(res, text)
         reset()
       }
     },
@@ -160,7 +166,7 @@ function Composer({ pid, onProcessed }: { pid: number; onProcessed: (r: IntakeRe
           setRound(round + 1)
         }
       } else {
-        onProcessed(res)
+        onProcessed(res, base ?? "")
         reset(); setNote("")
       }
     },
@@ -267,6 +273,8 @@ export default function LogPage() {
   const entries = useQuery({ queryKey: ["entries", pid], queryFn: () => ep.listEntries(pid) })
   const [intel, setIntel] = useState<Map<number, Intel>>(new Map())
   const [vitalNotes, setVitalNotes] = useState<{ id: number; label: string; at: string }[]>([])
+  // Questions aren't saved (router); show the exchange for this session only.
+  const [questionNotes, setQuestionNotes] = useState<{ id: number; asked: string; reply: string }[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // oldest → newest for a natural running log
@@ -276,15 +284,20 @@ export default function LogPage() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [ordered.length, vitalNotes.length, intel])
+  }, [ordered.length, vitalNotes.length, questionNotes.length, intel])
 
-  function onProcessed(res: IntakeResult) {
+  function onProcessed(res: IntakeResult, text: string) {
+    if (res.status === "question") {
+      setQuestionNotes((p) => [...p, { id: Date.now(), asked: text, reply: res.reply ?? "" }])
+      return
+    }
     const ne = res.new_entry
     if (ne) {
       setIntel((prev) =>
         new Map(prev).set(ne.entry_id, {
           matches: res.context_bundle?.semantic_matches ?? [],
           reasoning: res.reasoning_summary ?? {},
+          userQuestion: res.user_question,
         }),
       )
     }
@@ -304,7 +317,7 @@ export default function LogPage() {
         <CardContent className="h-full overflow-y-auto py-5">
           {entries.isLoading ? (
             <p className="text-sm text-muted-foreground">Loading your log…</p>
-          ) : ordered.length === 0 && vitalNotes.length === 0 ? (
+          ) : ordered.length === 0 && vitalNotes.length === 0 && questionNotes.length === 0 ? (
             <p className="text-sm text-muted-foreground">No entries yet. Log your first one below.</p>
           ) : (
             <div className="space-y-5">
@@ -317,6 +330,18 @@ export default function LogPage() {
                     <Check className="h-3.5 w-3.5 shrink-0 text-teal-600" />
                     <span className="text-muted-foreground">Recorded:</span>
                     <span className="font-medium text-foreground">{n.label}</span>
+                  </div>
+                </div>
+              ))}
+              {questionNotes.map((q) => (
+                <div key={`q${q.id}`} className="space-y-1.5">
+                  <div className="flex justify-end">
+                    <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-primary px-3.5 py-2 text-sm text-primary-foreground">
+                      {q.asked}
+                    </div>
+                  </div>
+                  <div className="max-w-[85%] rounded-2xl rounded-bl-sm border border-border bg-muted px-3.5 py-2 text-sm text-foreground">
+                    {q.reply}
                   </div>
                 </div>
               ))}
