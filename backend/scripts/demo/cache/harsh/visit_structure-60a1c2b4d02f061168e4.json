@@ -1,0 +1,38 @@
+{
+ "task": "visit_structure",
+ "result": {
+  "reason": "Review of diabetes control after HbA1c result.",
+  "discussed": [
+   "HbA1c of 8.4",
+   "Glimepiride dose increase",
+   "Avoiding low blood sugar"
+  ],
+  "doctor_said": [
+   "Dr. Rao said the HbA1c of 8.4 is still high.",
+   "Dr. Rao said not to skip meals after taking glimepiride.",
+   "Dr. Rao said if low sugar symptoms happen, to check blood sugar and take something sweet like glucose or juice."
+  ],
+  "medicine_changes": [
+   {
+    "action": "change",
+    "name": "glimepiride",
+    "dose": "2 mg",
+    "frequency": "before breakfast",
+    "reason": "HbA1c of 8.4 is still high"
+   }
+  ],
+  "tests_ordered": [
+   {
+    "name": "HbA1c",
+    "when": "in three months, before the review"
+   }
+  ],
+  "follow_up": {
+   "when": "in three months"
+  },
+  "watch_for": [
+   "Low sugars such as shaking, sweating or dizziness"
+  ],
+  "questions_next_time": []
+ }
+}

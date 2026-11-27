@@ -21,7 +21,9 @@ from app.models.clinical import DoseLog, Medication, VitalReading
 from app.models.patient import MedicalBackground, Patient
 from app.models.records import Report
 from app.models.user import User
+from app.models.visits import Visit
 from app.services import med_events
+from app.services import visits as visit_notes
 from app.services.alerts import create_alerts_for_readings
 from app.services.missing_info import check_missing_info
 from app.services.problems import refresh_problem_trends
@@ -110,6 +112,19 @@ def _report(pid: int, script: dict, ev: Event) -> None:
     parse_report(rid)  # the real extraction: text -> LLM values -> lab trends -> summary -> Chroma
 
 
+def _visit(pid: int, ev: Event) -> None:
+    """A visit recap through the real path: structured by the LLM (cached), then confirmed.
+    The script's medication_changes carry the medicine history, so it isn't applied twice."""
+    day = clock.to_local(ev.at).date()
+    structured, _ = visit_notes.structure(ev.data["recap"], ev.data["doctor"], day)
+    with SessionLocal() as db:
+        v = Visit(patient_id=pid, doctor_name=ev.data["doctor"], specialty=ev.data.get("specialty"),
+                  visit_date=day, source="typed", transcript=ev.data["recap"], structured=structured)
+        db.add(v)
+        db.flush()
+        visit_notes.confirm(db, pid, v, apply_medicines=False)
+
+
 def replay(key: str, log=print) -> int:
     script = load_script(key)
     today = clock.today()
@@ -144,6 +159,8 @@ def replay(key: str, log=print) -> int:
                         db.commit()
                 elif ev.kind == "report":
                     _report(pid, script, ev)
+                elif ev.kind == "visit":
+                    _visit(pid, ev)
             if i % 50 == 0 or i == len(timeline):
                 log(f"  {key}: {i}/{len(timeline)} events")
         with SessionLocal() as db:  # trends as of today

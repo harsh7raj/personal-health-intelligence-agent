@@ -45,7 +45,8 @@ as given. The app shows every [id] to the user as a clickable DATE, so write the
 date: "a similar episode on [E12]", not "on 2026-07-01 [E12]". Mention at most 5 dated facts, the \
 most relevant ones. Never cite an id that is not in the pack, and never invent dates, numbers or \
 events. Quote a doctor's instruction only from "doctor_instructions", \
-and say it is the doctor's ("Dr. Rao said on ...").
+and say it is the doctor's ("Dr. Rao said on ..."). Refer to a doctor by name every time, never \
+as he or she: the record doesn't say.
 When "recurrence" shows earlier episodes, mention their dates, each shared circumstance it lists \
 (including medicine doses marked taken earlier that day; as circumstances, not causes) and a \
 medicine change they all came after, then suggest practical \

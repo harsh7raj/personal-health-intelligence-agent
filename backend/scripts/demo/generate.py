@@ -22,7 +22,7 @@ PATIENTS_DIR = DEMO_DIR / "patients"
 GENERATED_DIR = DEMO_DIR / "generated"  # gitignored; rebuilt on every reset
 
 # Same-minute ordering: medicine changes, then doses, then readings/reports, then logs.
-_ORDER = {"med_change": 0, "dose": 1, "reading": 2, "bp": 2, "report": 3, "entry": 4}
+_ORDER = {"med_change": 0, "dose": 1, "reading": 2, "bp": 2, "report": 3, "entry": 4, "visit": 5}
 
 
 @dataclass(order=True)
@@ -106,6 +106,9 @@ def build_timeline(script: dict, today: date) -> list[Event]:
             g = ep["glucose"]
             events.append(_event(at(today, d, g["time"]), "reading", vital_type="blood_glucose",
                                  value=g["value"], unit="mg/dL"))
+
+    for v in script.get("visits", []):
+        events.append(_event(at(today, v["days_ago"], v.get("time", "17:00")), "visit", **v))
 
     for log in script.get("logs", []):
         events.append(_event(at(today, log["days_ago"], log["time"]), "entry", text=log["text"]))

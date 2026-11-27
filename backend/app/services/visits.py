@@ -246,13 +246,15 @@ class NeedsReview(Exception):
     """Some medicine names still need the user's check before the note can be applied."""
 
 
-def confirm(db: Session, pid: int, visit: Visit) -> dict:
+def confirm(db: Session, pid: int, visit: Visit, *, apply_medicines: bool = True) -> dict:
+    """Apply a reviewed note. apply_medicines=False keeps the medicine changes in the note only
+    (the demo replay, whose script records those changes with their own dates)."""
     changes = checked_changes(db, pid, visit.structured)
     pending = [c["name"] for c in changes if c["check"]["status"] == "please_check" and not c.get("confirmed")]
-    if pending:
+    if pending and apply_medicines:
         raise NeedsReview(", ".join(pending))
     applied: list[str] = []
-    for c in changes:
+    for c in changes if apply_medicines else []:
         mid = c.get("medication_id") or c["check"]["medication_id"]
         note = f"Visit with {visit.doctor_name}" + (f": {c['reason']}" if c.get("reason") else "")
         if c["action"] == "start":
