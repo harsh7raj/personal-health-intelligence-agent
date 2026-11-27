@@ -1,0 +1,18 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "symptom",
+  "name": "runny nose",
+  "attributes": {
+   "onset": "since this morning"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [],
+  "other_symptoms": [
+   "sneezing"
+  ]
+ }
+}

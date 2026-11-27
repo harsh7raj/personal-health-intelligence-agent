@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Blood glucose vital is falling to 150.0, while fasting plasma glucose remains elevated (171 mg/dL on 2026-04-12 and 152 mg/dL on 2026-07-11).",
+   "Heartburn is noted as increasing with 1 episode reported.",
+   "A missed lunch was logged on 2026-07-31 and is noted again in the current entry."
+  ]
+ }
+}

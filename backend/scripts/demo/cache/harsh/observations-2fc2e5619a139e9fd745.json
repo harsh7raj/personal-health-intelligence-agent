@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Runny nose is a new entry, logged as a single episode alongside four active problems (fatigue, headache, heartburn, knee pain), each with one episode so far.",
+   "HbA1c was 8.4% and fasting plasma glucose was 171 mg/dL on the 2026-04-12 lab report, both flagged above their reference ranges; the latest logged blood glucose reading is 152, and the glucose-related trends are described as stable.",
+   "A related past entry on 2026-04-28 noted poor sleep (about 5 hours) and tiredness in the morning, and fatigue is among the currently active problems."
+  ]
+ }
+}

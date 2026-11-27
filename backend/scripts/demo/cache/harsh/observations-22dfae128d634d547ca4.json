@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Latest blood glucose reading was 163.0 and has remained stable in the recent trend.",
+   "Latest blood pressure was 131/83, with both systolic and diastolic readings stable.",
+   "Weight was 82.6 and has remained stable."
+  ]
+ }
+}

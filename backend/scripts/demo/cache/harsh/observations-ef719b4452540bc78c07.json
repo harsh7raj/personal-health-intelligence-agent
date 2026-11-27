@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Heartburn has now been logged 2 times, with similar entries on 2026-04-21 (acidity after a late heavy dinner) and 2026-08-08 (acidity after biryani at a team dinner, with two drinks); the overall trend is stable.",
+   "HbA1c was 6.9% on the latest lab report (2026-10-19), down from 8.4% (2026-04-12) and 7.6% (2026-07-11), though still flagged high against a 4.0 - 5.6 reference range.",
+   "Fasting plasma glucose on lab reports was 171 mg/dL (2026-04-12) and 152 mg/dL (2026-07-11), both flagged high, while the latest logged blood glucose vital is 136 with a rising short-term trend."
+  ]
+ }
+}

@@ -1,0 +1,16 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   {
+    "text": "A similar note about poor sleep (about 5 hours and feeling tired the next morning) was logged on 2026-04-28; poor sleep and fatigue are each currently logged as 1 episode."
+   },
+   {
+    "text": "HbA1c was 6.9% on the 2026-10-19 lab report, down from 7.6% on 2026-07-11 and 8.4% on 2026-04-12, though still flagged above the 4.0-5.6% reference range."
+   },
+   {
+    "text": "Fasting plasma glucose was 128 mg/dL on the latest report (152 mg/dL on 2026-07-11), and the latest blood glucose vital reading of 126 mg/dL has been stable."
+   }
+  ]
+ }
+}

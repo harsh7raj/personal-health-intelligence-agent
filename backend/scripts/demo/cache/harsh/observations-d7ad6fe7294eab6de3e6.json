@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Stiffness has been logged once so far, alongside a separate single knee pain entry; both are new, so no trend can be described yet.",
+   "HbA1c was 8.4% (reference 4.0–5.6%) and fasting plasma glucose was 171 mg/dL (reference 70–100 mg/dL) on the 2026-04-12 lab report, both flagged high.",
+   "The latest blood glucose reading of 170 mg/dL has been stable and is close to the fasting plasma glucose of 171 mg/dL on the 2026-04-12 report."
+  ]
+ }
+}

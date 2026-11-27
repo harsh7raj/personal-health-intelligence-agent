@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "HbA1c was 8.4% (reference 4.0–5.6%) and fasting plasma glucose was 171 mg/dL (reference 70–100 mg/dL) on the lab report dated 2026-04-12, both flagged high.",
+   "The latest logged blood glucose reading is 166 mg/dL, and glucose readings have been stable, in line with the fasting glucose from the lab report.",
+   "Active entries include headache (2 episodes, mild, stable) alongside single episodes of fatigue, heartburn, knee pain, nasal congestion and runny nose; a stress note was just added."
+  ]
+ }
+}

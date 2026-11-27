@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Stiffness is recorded as increasing (1 episode) and a similar lower‑back stiffness was logged on 2026-06-20.",
+   "Blood glucose vital shows a rising trend, latest value 137 mg/dL.",
+   "HbA1c is 7.6 % on the latest report (2026-07-11) and remains above the reference range, with a stable trend across reports."
+  ]
+ }
+}

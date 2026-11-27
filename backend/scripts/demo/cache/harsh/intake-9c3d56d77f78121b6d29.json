@@ -1,0 +1,23 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "symptom",
+  "name": "fatigue",
+  "attributes": {
+   "onset": "last night",
+   "severity": "mild",
+   "description": "tired after flying back from Pune",
+   "symptom_note": "a bit jet lagged"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [
+   "travel"
+  ],
+  "other_symptoms": [
+   "jet lag"
+  ]
+ }
+}

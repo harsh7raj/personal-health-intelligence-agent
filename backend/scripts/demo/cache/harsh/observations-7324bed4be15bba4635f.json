@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "A new headache entry was logged, adding to the previously recorded mild headache on 2026-04-14 (active problem lists 2 episodes).",
+   "Blood glucose vital is rising, latest value 180.0 mg/dL (≈7.6% increase).",
+   "Fasting plasma glucose 171 mg/dL and HbA1c 8.4% from the 2026-04-12 lab report remain above reference ranges, with stable trends."
+  ]
+ }
+}

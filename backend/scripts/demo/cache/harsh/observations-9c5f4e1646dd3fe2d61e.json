@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Heartburn frequency is increasing (2 episodes) while other symptoms are stable",
+   "Knee pain is noted as increasing with a mild severity and 1 episode logged",
+   "HbA1c (6.9%) and fasting plasma glucose (128 mg/dL) remain above reference ranges and have been stable across reports from 2026-04-12 to 2026-10-19"
+  ]
+ }
+}

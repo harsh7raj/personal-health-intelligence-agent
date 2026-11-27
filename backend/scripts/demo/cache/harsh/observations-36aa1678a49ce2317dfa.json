@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Shakiness has now been logged 2 times; a similar episode on 2026-07-31 was described alongside sweatiness, dizziness and a racing heart, and the entry notes that a biscuit helped.",
+   "Fasting plasma glucose was 152 mg/dL on the 2026-07-11 lab report (reference 70-100), down from 171 mg/dL on 2026-04-12, and HbA1c was 7.6% (reference 4.0-5.6), down from 8.4%; both were flagged high.",
+   "Blood glucose readings show a falling trend, with the latest at 150, while blood pressure and weight have remained stable."
+  ]
+ }
+}

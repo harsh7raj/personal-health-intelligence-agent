@@ -1,0 +1,20 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "note",
+  "name": "walking",
+  "attributes": {
+   "distance": "5 km",
+   "blood sugar feeling": "steady",
+   "onset": "today"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [
+   "exercise"
+  ],
+  "other_symptoms": []
+ }
+}

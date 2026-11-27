@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Heartburn was logged as a new symptom and is marked as increasing in frequency.",
+   "Fasting plasma glucose measured 171 mg/dL on 2026-04-12 and 152 mg/dL on 2026-07-11, both flagged high, showing a modest decline while remaining above reference range.",
+   "Knee pain is noted as increasing with two episodes reported."
+  ]
+ }
+}

@@ -1,0 +1,16 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   {
+    "text": "A similar poor sleep entry was logged on 2026-04-28 (about 5 hours of sleep, tired in the morning), so this is the second poor sleep entry in the record."
+   },
+   {
+    "text": "Blood glucose readings have been rising, with the latest at 157 mg/dL. On the lab report from 2026-07-11, HbA1c was 7.6% and fasting plasma glucose was 152 mg/dL, both flagged high. On the 2026-04-12 report, HbA1c was 8.4% and fasting plasma glucose was 171 mg/dL."
+   },
+   {
+    "text": "Knee pain and heartburn are both logged as increasing, and headache is stable at 2 mild episodes. Poor sleep, shakiness and stiffness each have 1 episode logged."
+   }
+  ]
+ }
+}

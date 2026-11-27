@@ -1,0 +1,9 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Blood glucose vital shows a falling trend (latest 154 mg/dL, –10% change) while fasting plasma glucose remains elevated at 171 mg/dL and estimated average glucose at 194 mg/dL, all flagged high in the 2026-04-12 lab report.",
+   "HbA1c is 8.4 % on the latest lab report (2026-04-12) and has remained stable, staying above the reference range."
+  ]
+ }
+}

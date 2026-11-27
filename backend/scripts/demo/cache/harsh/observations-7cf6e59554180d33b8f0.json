@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Knee pain is a new entry, logged as 1 episode alongside single episodes of fatigue, headache (mild) and heartburn; no related past entries or recurring clusters are present yet.",
+   "The lab report dated 2026-04-12 showed HbA1c at 8.4% (reference 4.0-5.6) and fasting plasma glucose at 171 mg/dL (reference 70-100), both flagged high, with an estimated average glucose of 194 mg/dL; no earlier results were available for comparison.",
+   "The latest blood glucose reading is 143, down about 7% from the prior reading, while blood pressure (134/84) and weight (82.7) are stable."
+  ]
+ }
+}
