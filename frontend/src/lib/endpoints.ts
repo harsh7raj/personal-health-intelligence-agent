@@ -32,7 +32,7 @@ export interface VitalSummary {
   baseline_avg: number | null; delta_pct: number | null; trend: string | null
 }
 export interface Medication {
-  id: number; patient_id: number; name: string; dose: string | null
+  id: number; patient_id: number; name: string; brand_name: string | null; ingredients: string[]; dose: string | null
   frequency: string | null; dose_times: string[]; interval_days: number; purpose: string | null
   prescriber: string | null; prescriber_specialty: string | null
   started_on: string | null; active: boolean
@@ -228,10 +228,53 @@ export const createMedication = (
   id: number,
   m: {
     name: string; dose?: string; frequency?: string; dose_times?: string[]; purpose?: string
-    prescriber?: string; prescriber_specialty?: string
+    prescriber?: string; prescriber_specialty?: string; brand_name?: string; ingredients?: string[]
   },
 ) =>
   api.post<Medication>(`/patients/${id}/medications`, m).then((r) => r.data)
+
+// ---------- Medication safety (Phase 5) ----------
+export interface MedFinding {
+  id: string
+  kind: "interaction" | "duplicate" | "timing" | "condition" | "side_effect" | "alcohol"
+  level: "verified" | "label" | "ai"
+  level_label: string
+  severity: string | null
+  medicines: string[]
+  title: string
+  explanation: string
+  quote: string | null
+  source: { name: string; url: string | null; note?: string } | null
+  pharmacist_questions: string[]
+}
+export interface MedSafety {
+  checked_at: string
+  medicines: string[]
+  findings: MedFinding[]
+  pairs: { medicines: string[]; found: boolean; message: string | null }[]
+  no_finding_message: string
+  unresolved_medicines: string[]
+  labels_missing: string[]
+  ai_flags_enabled: boolean
+  disclaimer: string
+  sources: { name: string; url: string }[]
+}
+export interface NameResolution {
+  status: "rxnorm" | "suggested" | "unknown" | "offline"
+  ingredients: string[]
+  suggestion: { name: string; strength: string | null; rxnorm_ingredients: string[]; verified: boolean }[]
+  needs_confirmation: boolean
+}
+export interface MedCheck {
+  medicine: string; recognized: boolean; assumed?: string | null; ingredients?: string[]
+  findings: MedFinding[]; message: string | null
+}
+export const getMedSafety = (id: number, refresh = false) =>
+  api.get<MedSafety>(`/patients/${id}/medications/safety`, { params: { refresh } }).then((r) => r.data)
+export const resolveMedName = (id: number, name: string) =>
+  api.post<NameResolution>(`/patients/${id}/medications/resolve-name`, { name }).then((r) => r.data)
+export const checkMedicine = (id: number, name: string) =>
+  api.post<MedCheck>(`/patients/${id}/medications/check`, { name }).then((r) => r.data)
 export const deleteMedication = (id: number, mid: number) =>
   api.delete(`/patients/${id}/medications/${mid}`)
 export const listSymptoms = (id: number) =>
@@ -368,6 +411,7 @@ export interface ChatEvidence {
   medication?: string; event?: string; old_dose?: string | null; new_dose?: string | null
   report_type?: string | null; entry_id?: number; report_id?: number
   measures?: string; url?: string; test?: string
+  level_label?: string; title?: string; explanation?: string; quote?: string | null
 }
 export interface ChatEscalation {
   kind: "medical" | "mental_health"; reasons: string[]; message: string; call: string; offer?: string[]

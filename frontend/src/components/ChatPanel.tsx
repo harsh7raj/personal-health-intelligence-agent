@@ -23,6 +23,7 @@ function fmtDay(iso?: string | null): string {
 /** Short label for an evidence chip: a glossary entry's test name, else its date, else its id. */
 function chipLabel(e: ChatEvidence | undefined, id: string): string {
   if (e?.kind === "glossary") return `about ${e.name ?? id}`
+  if (e?.level_label) return e.level_label
   return e?.date ? fmtDay(e.date) : id
 }
 
@@ -34,6 +35,7 @@ function evidenceTitle(e: ChatEvidence): string {
   }
   if (e.kind === "report") return `${e.report_type ?? "Report"}`
   if (e.kind === "glossary") return `What ${e.name} measures`
+  if (e.title) return e.title
   return e.name ? `Logged: ${e.name}` : "Logged entry"
 }
 
@@ -144,6 +146,7 @@ function Bubble({ msg, pid, onOpen }: { msg: ChatMessage; pid: number; onOpen: (
 export function ChatPanel({
   pid,
   reportId,
+  focus: pinned,
   suggestions = DEFAULT_SUGGESTIONS,
   emptyText,
   placeholder = "e.g. 'feeling shaky, skipped lunch' or 'how has my sugar been this month?'",
@@ -152,13 +155,15 @@ export function ChatPanel({
   pid: number
   /** Pin a report: its own thread, and follow-ups answered with that report in view. */
   reportId?: number
+  /** Something else pinned for the next messages, e.g. a medication finding. */
+  focus?: Record<string, unknown>
   suggestions?: string[]
   emptyText?: string
   placeholder?: string
   className?: string
 }) {
   const qc = useQueryClient()
-  const focus = reportId ? { type: "report", id: reportId } : undefined
+  const focus = reportId ? { type: "report", id: reportId } : pinned
   const history = useQuery({ queryKey: ["chat", pid, reportId ?? "all"], queryFn: () => ep.getChatHistory(pid, reportId) })
   const [text, setText] = useState("")
   const [pendingText, setPendingText] = useState<string | null>(null)
@@ -254,6 +259,8 @@ export function ChatPanel({
               {open.time ? ` · ${open.time}` : ""}
             </p>
             {open.text && <p className="text-foreground">“{open.text}”</p>}
+            {open.explanation && <p className="text-foreground">{open.explanation}</p>}
+            {open.quote && <p className="text-xs italic text-muted-foreground">“{open.quote}”</p>}
             {open.kind === "glossary" && (
               <>
                 <p className="text-foreground">{open.measures}</p>
