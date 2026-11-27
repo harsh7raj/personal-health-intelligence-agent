@@ -222,32 +222,33 @@ Budget notes are at the end of this file.
 
 ### Extraction upgrades
 The analyzer already exists (`services/report_extraction.py`, `services/report_indexing.py`), but it's basic and barely visible.
-- [ ] **Photos and scans.** Accept JPG/PNG and image-only PDFs. Render PDF pages to images, send them to the vision model, and keep the same JSON output. This replaces the current `OcrRequiredError` dead end.
-- [ ] **More report types.** Today there are only Lipid Panel, CBC, Thyroid Panel, Discharge Summary, Prescription, and Other. Add HbA1c / diabetes panel, kidney function, liver function, vitamins (D, B12), and urine routine.
-- [ ] **Test-name aliases** so that, for example, "LDL-C" and "LDL Cholesterol (Direct)" trend as one series.
-- [ ] **Numeric ranges.** Store each value's reference range as numbers (low / high) where possible, so the UI can draw range bars.
-- [ ] **Critical values, decided in code.** Keep a curated list of dangerous values (very high or low potassium, sodium, glucose, very low hemoglobin or platelets) that triggers a "contact your doctor today" banner. Get the thresholds checked by your guide or a doctor.
+- [x] **Photos and scans.** Accept JPG/PNG and image-only PDFs. Render PDF pages to images, send them to the vision model, and keep the same JSON output. This replaces the current `OcrRequiredError` dead end.
+- [x] **More report types.** Today there are only Lipid Panel, CBC, Thyroid Panel, Discharge Summary, Prescription, and Other. Add HbA1c / diabetes panel, kidney function, liver function, vitamins (D, B12), and urine routine.
+- [x] **Test-name aliases** so that, for example, "LDL-C" and "LDL Cholesterol (Direct)" trend as one series.
+- [x] **Numeric ranges.** Store each value's reference range as numbers (low / high) where possible, so the UI can draw range bars.
+- [x] **Critical values, decided in code.** Keep a curated list of dangerous values (very high or low potassium, sodium, glucose, very low hemoglobin or platelets) that triggers a "contact your doctor today" banner. Get the thresholds checked by your guide or a doctor.
 
 ### Explainer chat
-- [ ] Open the explainer automatically when a report finishes processing, and from an "Explain this report" button on any report.
-- [ ] The first message is generated automatically and covers:
+- [x] Open the explainer automatically when a report finishes processing, and from an "Explain this report" button on any report.
+- [x] The first message is generated automatically and covers:
   - what the report covers,
   - which values are outside the range, and by how much,
   - how each repeated test has changed since the previous report,
   - what each flagged test measures (from the glossary),
   - related things the patient has logged (symptoms, medicines and their purpose), framed as "worth discussing together", never as a cause.
-- [ ] Handle follow-up questions:
+- [x] Handle follow-up questions:
   - "What is TSH?": explain from the glossary.
   - "Is this bad?": say where it sits against the range, how it's trending, and who to ask. No good/bad verdict.
   - "Why could this be high?": give general factors from the glossary, never "yours is high because…".
   - "How does this compare to last time?": answer from the trend data.
 - [ ] **"What should I ask my doctor?"** generates questions, and one tap saves them to the pre-visit brief (Phase 3).
-- [ ] Context the model gets (all citable): the extracted values, the raw report text, previous values for the same tests, conditions, current medicines, and related symptoms with dates.
-- [ ] **Glossary** in `app/data/lab_glossary.py`: about 40 common tests, each with what it measures, general reasons it can be high or low, and typical units, plus MedlinePlus links. Curate it the same way as `data/drug_reference.py`.
-- [ ] Safety: run the non-diagnostic guard on every reply, show any critical-value banner first, and never interpret beyond the printed range and the patient's record.
+  - *Generating (with copy) is done; the one-tap save lands with the pre-visit brief in Phase 3.*
+- [x] Context the model gets (all citable): the extracted values, the raw report text, previous values for the same tests, conditions, current medicines, and related symptoms with dates.
+- [x] **Glossary** in `app/data/lab_glossary.py`: about 40 common tests, each with what it measures, general reasons it can be high or low, and typical units, plus MedlinePlus links. Curate it the same way as `data/drug_reference.py`.
+- [x] Safety: run the non-diagnostic guard on every reply, show any critical-value banner first, and never interpret beyond the printed range and the patient's record.
 
 ### Report page
-- [ ] Add a full report page using the existing `GET /patients/{id}/reports/{rid}`, which the frontend currently never calls:
+- [x] Add a full report page using the existing `GET /patients/{id}/reports/{rid}`, which the frontend currently never calls:
   - every value with a range bar, its flag, the previous value, and the change,
   - the explainer chat as a side panel.
 

@@ -291,6 +291,37 @@ stored evidence keeps them). `python -m scripts.demo reset [keys]`; `scripts.dev
 patient on start. Multi-symptom logs: intake also records `other_symptoms` (canonical), and episode lookups
 match either the main name or those, so "shaky, sweaty and dizzy" counts as shakiness however it is parsed.
 
+### D33 — Lab values are decided in code (`app/data/lab_glossary.py`, `services/lab_values.py`)
+The LLM extracts what is printed; code decides the rest. Glossary: 48 tests, each with aliases, what it
+measures, GENERAL reasons for high/low, units and a MedlinePlus link (all links checked; two replaced). The
+glossary key is the trend series name (`lab_<key>`), so "LDL-C" and "LDL Cholesterol (Direct)" share one
+series; unknown tests keep the old slug. Printed ranges become (low, high): "a - b", "<b", ">a"; a multi-band
+range is used only when exactly one band is marked normal/desirable/optimal, else left unread. The flag is
+computed from that range; the LLM's flag stays only when no numeric range exists. Critical values
+(`data/critical_values.py`: K <3.0/>6.0, Na <125/>155, glucose <54/>400 mg/dL, Hb <7 g/dL, platelets
+<50,000/µL) are checked with unit conversion (mmol/L glucose, g/L Hb, lakhs or 10^3 platelets); an unclear
+unit never triggers one. **Thresholds pending a doctor's review.** Photos (JPG/PNG/WebP) and image-only PDFs
+(first 3 pages, rendered with **pypdfium2**, a new dependency: Apache/BSD, prebuilt wheels, no system install)
+go to MODEL_VISION as JPEGs <=2000 px and return the same JSON plus the text as read; Groq fallback:
+`FALLBACK_VISION_MODEL`. New report types: Diabetes Panel, Kidney Function, Liver Function, Vitamin Panel,
+Urine Routine. Report summaries get the actual values and a first-to-latest direction (5% threshold) instead
+of the vitals rolling average, which read 8.4 -> 7.6 -> 6.9 as "stable".
+
+### D34 — Report explainer (`services/report_explainer.py`, `/reports/:id`)
+The Phase 2 assistant with a report pinned. Code builds the pack: each value with range, flag, `outside_by`,
+critical, the previous value of the same test (an earlier report, V id) and the change; glossary entries
+(G ids, numbered by glossary order); symptoms logged 90 days before to 14 days after the report; current
+medicines with purpose; conditions; a text excerpt. Sonnet (`report_explainer`, max 2500 tokens) writes the
+opening message citing ids; the chat's checks apply, else a fact list. A critical value always leads, in
+code's own words (the model is told not to repeat or soften it). The opening message is stored in
+`chat_messages` with `meta.report_id` + `kind=report_explainer` and reused on reopen (`?regenerate=true`
+writes a new one). Follow-ups: chat `focus={"type":"report","id"}` adds `focused_report` to the pack and
+tags the thread (`GET /chat?report_id=`); a question naming a test ("what is TSH?") adds its glossary entry
+anywhere. Rules: no good/bad verdict, general reasons only, no interpretation beyond the printed range.
+`POST .../questions` writes 3-5 questions for the doctor (guarded; fallback from flagged values); saving them
+to the pre-visit brief comes with Phase 3. The report page opens on its own when a report uploaded there
+finishes processing.
+
 ---
 
 ## 3. PatientHealthState (Pydantic, in-memory shared state)
@@ -527,6 +558,17 @@ pytest suite vs `phia_test` (D11), non-diagnostic guard + audit (D12), loose-end
 ---
 
 ## 9. Work Log (newest first)
+
+- **2026-11-28 (cont. 2)** — **v2 Phase 4: report explainer** (D33, D34). Glossary + aliases, numeric
+  ranges and code flags, critical values, vision reading of photos/scans (new dependency pypdfium2), new report
+  types, explainer service + endpoints, report-pinned chat threads, doctor questions, full report page with range
+  bars and the explainer beside it, auto-open after upload. Found while checking Harsh's real data: report
+  summaries called a falling HbA1c "stable" (fixed: code-computed direction). Verified with real models: the
+  explanation of Harsh's October panel (values vs range, changes since July, glossary, his logged episodes as
+  things to discuss), "Is this bad?" (no verdict), five doctor questions, and a tilted, blurred phone-style
+  photo read exactly by the vision model (~1.2 cents). **Tests:** all pass; ruff clean; no migration drift;
+  frontend builds. **Pending:** critical thresholds need a doctor's review; one-tap save of questions waits on
+  Phase 3; live-upload demo files (incl. a phone photo) belong to Phase 7.
 
 - **2026-11-28 (cont.)** — **v2 Phase 7 machinery + Harsh** (D32). Story script, timeline generator with
   ReportLab lab PDFs, replay through the real pipeline under the frozen clock, LLM response cache, `reset`
@@ -911,6 +953,9 @@ pytest suite vs `phia_test` (D11), non-diagnostic guard + audit (D12), loose-end
 ---
 
 ## 10. Open Questions (unresolved — revisit before relevant phase)
+
+- **OQ-v2-1 (before the demo):** a doctor or the project guide should check the critical-value thresholds in
+  `app/data/critical_values.py` (D33) and the escalation numbers 112 / Tele-MANAS 14416 (D30).
 
 - **OQ7 — RESOLVED 2026-06-30 (D8):** Reasoning + Response use Groq `llama-3.3-70b-versatile`. Response
   narrative quality to be re-evaluated in Phase 6 (swap only if it disappoints).
