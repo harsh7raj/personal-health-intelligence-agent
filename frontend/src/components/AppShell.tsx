@@ -1,15 +1,6 @@
 import type { ReactNode } from "react"
 import { NavLink } from "react-router-dom"
-import {
-  Activity,
-  BookOpen,
-  FileText,
-  LayoutDashboard,
-  LogOut,
-  Pill,
-  MessageCircle,
-  Share2,
-} from "lucide-react"
+import { Activity, BookOpen, FileText, LayoutDashboard, LogOut, MessageCircle, Pill, Share2, Stethoscope } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
@@ -20,6 +11,7 @@ const NAV = [
   { to: "/story", label: "Story", icon: BookOpen },
   { to: "/medications", label: "Medications", icon: Pill },
   { to: "/reports", label: "Reports", icon: FileText },
+  { to: "/visits", label: "Visits", icon: Stethoscope },
   { to: "/share", label: "Share", icon: Share2 },
 ]
 

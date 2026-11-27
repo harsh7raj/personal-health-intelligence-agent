@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Check, Copy, Download, HelpCircle, Loader2, Minus } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 import * as ep from "@/lib/endpoints"
+import * as vi from "@/lib/visits"
 import type { ReportRow } from "@/lib/endpoints"
 import { ChatPanel } from "@/components/ChatPanel"
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
@@ -102,6 +103,9 @@ function ValueRow({ row }: { row: ReportRow }) {
 function DoctorQuestions({ pid, rid }: { pid: number; rid: number }) {
   const [copied, setCopied] = useState(false)
   const q = useMutation({ mutationFn: () => ep.reportQuestions(pid, rid) })
+  const save = useMutation({
+    mutationFn: () => vi.saveQuestions(pid, (q.data?.questions ?? []).map((text) => ({ text, source: "report", source_id: rid }))),
+  })
   async function copy() {
     await navigator.clipboard.writeText((q.data?.questions ?? []).map((x) => `- ${x}`).join("\n"))
     setCopied(true)
@@ -119,9 +123,14 @@ function DoctorQuestions({ pid, rid }: { pid: number; rid: number }) {
             <ul className="list-disc space-y-1 pl-5 text-sm text-foreground">
               {q.data.questions.map((x) => <li key={x}>{x}</li>)}
             </ul>
-            <Button variant="ghost" onClick={copy}>
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {copied ? "Copied" : "Copy questions"}
-            </Button>
+            <div className="flex flex-wrap gap-1">
+              <Button variant="outline" onClick={() => save.mutate()} disabled={save.isPending || save.isSuccess}>
+                <Check className="h-3.5 w-3.5" /> {save.isSuccess ? "Saved to your pre-visit brief" : "Save to my pre-visit brief"}
+              </Button>
+              <Button variant="ghost" onClick={copy}>
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {copied ? "Copied" : "Copy"}
+              </Button>
+            </div>
           </div>
         )}
         {q.isError && <p className="text-sm text-destructive">Couldn't write questions right now.</p>}

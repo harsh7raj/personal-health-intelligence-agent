@@ -12,6 +12,10 @@ import SharePage from "@/pages/SharePage"
 import MedicationsPage from "@/pages/MedicationsPage"
 import ReportsPage from "@/pages/ReportsPage"
 import ReportPage from "@/pages/ReportPage"
+import VisitsPage from "@/pages/VisitsPage"
+import NewVisitPage from "@/pages/NewVisitPage"
+import VisitPage from "@/pages/VisitPage"
+import BriefPage from "@/pages/BriefPage"
 import DoctorViewPage from "@/pages/DoctorViewPage"
 
 function ProtectedLayout() {
@@ -41,6 +45,10 @@ export const router = createBrowserRouter([
       { path: "/medications", element: <MedicationsPage /> },
       { path: "/reports", element: <ReportsPage /> },
       { path: "/reports/:rid", element: <ReportPage /> },
+      { path: "/visits", element: <VisitsPage /> },
+      { path: "/visits/new", element: <NewVisitPage /> },
+      { path: "/visits/brief", element: <BriefPage /> },
+      { path: "/visits/:vid", element: <VisitPage /> },
       { path: "/share", element: <SharePage /> },
     ],
   },
