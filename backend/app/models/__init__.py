@@ -23,6 +23,7 @@ from app.models.patient import MedicalBackground, Patient
 from app.models.records import ChatMessage, Entry, MemoryLog, Report
 from app.models.reference import DrugInteraction
 from app.models.user import User
+from app.models.visits import Reminder, SavedQuestion, Visit
 
 __all__ = [
     "Base",
@@ -49,4 +50,7 @@ __all__ = [
     "DrugLabel",
     "DrugClassInfo",
     "MedCheckRun",
+    "Visit",
+    "Reminder",
+    "SavedQuestion",
 ]

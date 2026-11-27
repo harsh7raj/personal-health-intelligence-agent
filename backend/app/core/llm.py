@@ -282,6 +282,37 @@ def llm_vision_json(
     return _route(task, system, user, temperature, as_json=True, images=images)
 
 
+def transcribe(path: str | Path) -> str:
+    """Speech to text for visit recaps: Whisper (STT_MODEL) on Groq. Raises LLMUnavailable if
+    no Groq key is set. Inside response_cache() the transcript is cached by the audio's hash."""
+    s = get_settings()
+    data = Path(path).read_bytes()
+    cache = None
+    if _cache_dir is not None:
+        cache = _cache_dir / f"stt-{hashlib.sha256(data).hexdigest()[:20]}.json"
+        _cache_used.add(cache)
+        if cache.exists():
+            return json.loads(cache.read_text(encoding="utf-8"))["result"]
+    if not s.FALLBACK_API_KEY:
+        raise LLMUnavailable("speech-to-text needs FALLBACK_API_KEY (Groq)")
+    rec: dict[str, Any] = {"task": "transcribe", "provider": FALLBACK, "model": s.STT_MODEL, "ok": False,
+                           "prompt_tokens": None, "completion_tokens": None, "cost_usd": None, "latency_ms": None}
+    started = time.perf_counter()
+    try:
+        res = _client(FALLBACK).audio.transcriptions.create(
+            model=s.STT_MODEL, file=(Path(path).name, data), response_format="text", language="en",
+        )
+        text = (res if isinstance(res, str) else getattr(res, "text", "") or "").strip()
+        rec["ok"] = True
+    finally:
+        rec["latency_ms"] = round((time.perf_counter() - started) * 1000)
+        _record_usage(rec)
+    if cache is not None:
+        cache.write_text(json.dumps({"task": "transcribe", "result": text}, ensure_ascii=False, indent=1),
+                         encoding="utf-8", newline="\n")
+    return text
+
+
 def list_models(provider: str = PRIMARY) -> list[str]:
     """Model ids a provider exposes (GET {base_url}/v1/models)."""
     return sorted(m.id for m in _client(provider).models.list())
