@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:5174"
 
     DATABASE_URL: str = "postgresql+psycopg://phia:phia@localhost:5432/phia"
+    # Dev runner only (scripts/dev.py): folder of a portable Postgres install with
+    # pgsql/bin and data/ inside. Empty = use Docker (or a Postgres already running).
+    LOCAL_PG_HOME: str = ""
 
     # Vector store. CHROMA_MODE="embedded" (default, local dev) runs Chroma in-process
     # with persistence at CHROMA_PATH, so no separate server is needed. "http" talks to

@@ -64,7 +64,7 @@ JWT auth · ReportLab (PDF)
 **Frontend** — React 19 · Vite · TypeScript · Tailwind CSS · TanStack Query · axios ·
 React Router · Recharts
 
-**Infra** — docker-compose (Postgres + Chroma) for local dev · `uv` for backend packaging
+**Infra** — Postgres via docker-compose (or a portable install) · embedded Chroma · `uv` for backend packaging
 
 ## Repository layout
 
@@ -77,32 +77,61 @@ DEPLOY.md    Free-tier deployment walkthrough (Vercel + Render + Neon)
 
 ## Run it locally
 
-**Prerequisites:** Docker, Python 3.11+, [`uv`](https://docs.astral.sh/uv/), Node 20+, and a
-[Groq API key](https://console.groq.com/) (free).
+**Prerequisites:** Python 3.11, [`uv`](https://docs.astral.sh/uv/), Node 20+, and Postgres 16
+(Docker, or the portable no-admin install below). Chroma runs embedded inside the backend.
+LLM keys are optional: without them the app runs with offline fallbacks (see `backend/.env.example`).
+
+**One command** (from `backend/`):
 
 ```bash
-# 1. Backend infra (Postgres + Chroma)
-cd backend
-docker compose up -d
-
-# 2. Backend env + deps
-cp .env.example .env        # then paste your GROQ_API_KEY into .env
-uv sync
-
-# 3. Migrate + seed the demo dataset
-uv run alembic upgrade head
-uv run python -m scripts.seed_demo
-
-# 4. Run the API  (http://localhost:8000)
-uv run uvicorn app.main:app --reload
-
-# 5. Frontend  (in a second terminal → http://localhost:5173)
-cd ../frontend
-npm install
-npm run dev
+cp .env.example .env            # PowerShell: Copy-Item .env.example .env
+uv run python -m scripts.dev
 ```
 
+It starts Postgres if needed (Docker, or `LOCAL_PG_HOME` below), creates the database, applies
+migrations, seeds the demo patient if missing, then serves:
+- API: http://localhost:8001 (health check at `/api/health`)
+- Web app: http://localhost:5173 (the Vite proxy sends `/api` to port 8001)
+
+Ctrl+C stops both servers; Postgres keeps running. Add `--reload` to restart the API on code changes.
+
 **Demo login:** `demo@phia.health` / `demo-pass-123`
+
+### Windows without Docker (portable Postgres, no admin rights)
+
+1. Download the PostgreSQL 16 "binaries" zip for Windows x64 from
+   https://www.enterprisedb.com/download-postgresql-binaries and unzip it to
+   `%LOCALAPPDATA%\phia-postgres` (you only need `pgsql\bin`, `lib` and `share`; skip pgAdmin).
+2. Create the data folder once (user and password `phia`):
+   ```powershell
+   $pg = "$env:LOCALAPPDATA\phia-postgres"
+   Set-Content "$pg\pw.tmp" "phia" -NoNewline
+   & "$pg\pgsql\bin\initdb.exe" -D "$pg\data" -U phia --pwfile="$pg\pw.tmp" -E UTF8 --locale=C --auth=scram-sha-256
+   Remove-Item "$pg\pw.tmp"
+   ```
+3. In `backend/.env`, set `LOCAL_PG_HOME=C:\Users\<you>\AppData\Local\phia-postgres`.
+   `scripts.dev` then starts it for you; `uv run python -m scripts.dev --stop-db` stops it.
+
+### Step by step (what the one command does)
+
+```bash
+cd backend
+docker compose up -d                    # or start the portable Postgres
+uv run alembic upgrade head
+uv run python -m scripts.seed_demo      # with the API stopped: embedded Chroma allows one writer
+uv run uvicorn app.main:app --port 8001
+cd ../frontend && npm ci && npm run dev
+```
+
+### Checks
+
+```bash
+cd backend
+uv run ruff check .
+uv run pytest          # needs Postgres; uses a separate phia_test database
+uv run alembic check
+cd ../frontend && npm run build
+```
 
 ## Deployment
 
