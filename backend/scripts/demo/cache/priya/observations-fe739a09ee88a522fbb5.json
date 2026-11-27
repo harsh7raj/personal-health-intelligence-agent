@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "TSH was 7.2 µIU/mL (flagged high) on the 2025-11-23 thyroid panel. It was 2.1 on 2026-03-23 and 1.9 on 2026-07-31, both within range. Free T4 rose from 0.8 to 1.3 and then 1.4 ng/dL over the same reports.",
+   "A visit logged on 2025-11-25 noted the TSH of 7.2 and a medicine change (Thyronorm 75 mcg). The new thyroid tablet entry is a medication entry that relates to that earlier note.",
+   "Weight has been stable (latest 57.7), and headache and knee pain each have a single logged episode with no clear trend."
+  ]
+ }
+}

@@ -1,0 +1,9 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "TSH was 2.1 µIU/mL on the 2026-03-23 thyroid panel, down from 7.2 µIU/mL (flagged high, reference 0.4-4.2) on the 2025-11-23 panel.",
+   "Free T4 was 1.3 ng/dL on the 2026-03-23 thyroid panel, up from 0.8 ng/dL on 2025-11-23 (reference 0.8-1.8)."
+  ]
+ }
+}

@@ -1,0 +1,20 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "vital",
+  "name": "blood pressure",
+  "attributes": {
+   "systolic": null,
+   "diastolic": null,
+   "concern": "worried"
+  },
+  "value": null,
+  "unit": null,
+  "complete": false,
+  "clarifying_question": "What were your blood pressure readings (systolic over diastolic), and when were they taken?",
+  "context_tags": [
+   "poor_sleep"
+  ],
+  "other_symptoms": []
+ }
+}

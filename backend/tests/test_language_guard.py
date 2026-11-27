@@ -63,6 +63,8 @@ def test_opt_in_still_blocks_unattributed_sentences():
     ("Your doctor prescribed metformin in 2024.", False),
     ("Metformin (prescribed by Dr. Mehta) and amlodipine.", False),
     ("Both prescribers may not know about each other.", False),
+    ("Shelcal, which Dr. Kapoor prescribed, is taken at 7.", False),
+    ("Dr. Kapoor, who prescribed Shelcal, may want to know.", False),
     ("I would prescribe a lower dose.", True),
     ("This is commonly prescribed for diabetes.", True),
 ])

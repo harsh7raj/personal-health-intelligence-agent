@@ -1,0 +1,32 @@
+{
+ "task": "visit_structure",
+ "result": {
+  "reason": "Knee pain after running.",
+  "discussed": [
+   "Knee pain after running",
+   "Vitamin D level"
+  ],
+  "doctor_said": [
+   "Dr. Kapoor said my vitamin D is a bit low.",
+   "Dr. Kapoor said to rest the knee for two weeks.",
+   "Dr. Kapoor said to come back if the knee still hurts."
+  ],
+  "medicine_changes": [
+   {
+    "action": "start",
+    "name": "Shelcal 500",
+    "dose": "500",
+    "frequency": "once daily",
+    "reason": "Vitamin D is a bit low"
+   }
+  ],
+  "tests_ordered": [],
+  "follow_up": {
+   "when": "After two weeks of rest, if the knee still hurts"
+  },
+  "watch_for": [
+   "Knee still hurting after two weeks of rest"
+  ],
+  "questions_next_time": []
+ }
+}

@@ -30,7 +30,7 @@ from app.services.problems import refresh_problem_trends
 from app.services.report_extraction import parse_report
 from app.services.vitals_trend import recompute_summary
 from app.vectorstore.collections import get_entries_collection, get_reports_collection
-from scripts.demo.generate import GENERATED_DIR, Event, build_timeline, load_script, make_lab_pdf
+from scripts.demo.generate import GENERATED_DIR, Event, build_timeline, load_script, make_lab_pdf, make_live_files
 
 CACHE_DIR = Path(__file__).resolve().parent / "cache"
 
@@ -66,9 +66,10 @@ def _create(script: dict, today: date) -> tuple[int, dict[str, int]]:
         for m in script["medicines"]:
             started = today - timedelta(days=m["started_days_ago"])
             med = Medication(
-                patient_id=patient.id, name=m["name"], dose=m["dose"], frequency=m["frequency"],
-                dose_times=m["dose_times"], purpose=m.get("purpose"), prescriber=m.get("prescriber"),
-                prescriber_specialty=m.get("specialty"), started_on=started,
+                patient_id=patient.id, name=m["name"], dose=m.get("start_dose", m["dose"]),
+                frequency=m["frequency"], dose_times=m["dose_times"], purpose=m.get("purpose"),
+                prescriber=m.get("prescriber"), prescriber_specialty=m.get("specialty"), started_on=started,
+                brand_name=m.get("brand_name"), ingredients=m.get("ingredients") or [],
             )
             db.add(med)
             db.flush()
@@ -99,7 +100,7 @@ def _reading(pid: int, readings: list[tuple[str, float, str]], when) -> None:
 
 def _report(pid: int, script: dict, ev: Event) -> None:
     sample_day = clock.to_local(ev.at).date()
-    pdf = make_lab_pdf(GENERATED_DIR / script["key"] / f"hba1c_report_{ev.data['index']}.pdf",
+    pdf = make_lab_pdf(GENERATED_DIR / script["key"] / f"{ev.data.get('file', 'hba1c_report')}_{ev.data['index']}.pdf",
                        script, ev.data, sample_day)
     dest = Path(get_settings().UPLOAD_DIR) / str(pid) / pdf.name
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -137,7 +138,7 @@ def replay(key: str, log=print) -> int:
                 if ev.kind == "entry":
                     _entry(pid, ev.data["text"])
                 elif ev.kind == "reading":
-                    _reading(pid, [(ev.data["vital_type"], ev.data["value"], ev.data["unit"])], ev.at)
+                    _reading(pid, [(ev.data["vital_type"], ev.data["value"], ev.data.get("unit"))], ev.at)
                 elif ev.kind == "bp":
                     _reading(pid, [("bp_systolic", ev.data["systolic"], "mmHg"),
                                    ("bp_diastolic", ev.data["diastolic"], "mmHg")], ev.at)
@@ -166,4 +167,19 @@ def replay(key: str, log=print) -> int:
         with SessionLocal() as db:  # trends as of today
             refresh_problem_trends(db, pid)
             db.commit()
+    make_live_files(script, today)
+    _warm_med_checks(pid, log)
     return pid
+
+
+def _warm_med_checks(pid: int, log) -> None:
+    """Fetch and cache the openFDA labels / RxClass classes and store the safety check, so the
+    demo's Medications page works offline. Needs the network once; skipped quietly without it."""
+    from app.services import med_safety
+
+    try:
+        with SessionLocal() as db:
+            r = med_safety.latest(db, pid, force=True)
+            log(f"  medication checks: {len(r['findings'])} findings, labels missing: {r['labels_missing']}")
+    except Exception as exc:  # noqa: BLE001
+        log(f"  medication checks skipped ({type(exc).__name__}); open the Medications page online once")

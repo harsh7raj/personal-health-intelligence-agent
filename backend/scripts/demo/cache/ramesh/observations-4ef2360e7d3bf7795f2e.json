@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "This is the first headache episode on record, logged as mild severity.",
+   "The latest blood pressure readings were 146 systolic and 93 diastolic, and both have been stable compared with prior readings.",
+   "Weight is 76.0 and has been stable."
+  ]
+ }
+}

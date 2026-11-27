@@ -55,8 +55,11 @@ their doctor. If the pack does not answer a question, say so plainly.
 Write 2 to 6 short sentences in plain language, addressed to the user ("you").
 Return only the reply text, with its [ids].
 """ + report_explainer.FOLLOW_UP_RULES + """
-MEDICINES: speak about medicine safety only from "med_check", "possible_side_effects" or \
-"pinned_finding". Name each finding's level as given (Verified / Official label / AI flag \
+MEDICINES: speak about medicine safety only from "med_check", "possible_side_effects", \
+"medication_findings" or "pinned_finding". When a symptom is logged and "medication_findings" is present, \
+mention the most relevant finding briefly (its level and [id]) as something to ask their pharmacist about, \
+never as the cause. If a medicine was started or changed shortly before the recent episodes, say when, as a \
+circumstance. Before saying a test result is missing, check "reports". Name each finding's level as given (Verified / Official label / AI flag \
 (unverified)) and cite its [id]; quote label text only from its "quote". Never say medicines are \
 safe together or that there is no interaction: when "med_check" has a "message", say exactly that \
 message. Never suggest stopping, skipping or changing a medicine; when there is a concern, add \
@@ -187,8 +190,10 @@ def build_pack(
         pack["focused_report"] = {k: rp[k] for k in ("report", "critical", "glossary",
                                                       "logged_symptoms_around_report", "conditions")}
         pack["current_medicines_with_purpose"] = rp["current_medicines"]
-    elif any(w in text for w in _REPORT_WORDS):
-        pack["reports"] = [keep(r) for r in retrieval.reports(db, patient_id)[:3]]
+    else:  # the latest results, so the reply never says a test is missing when it isn't
+        reps = retrieval.reports(db, patient_id)[: 3 if any(w in text for w in _REPORT_WORDS) else 2]
+        if reps:
+            pack["reports"] = [keep(r) for r in reps]
     asked = mentioned_tests(message)
     if asked:  # "what is TSH?": its glossary entry, citable
         have = {g["test_key"] for g in (pack.get("focused_report") or {}).get("glossary", [])}
@@ -212,6 +217,12 @@ def build_pack(
                        if f["id"] == focus.get("id")), None)
         if pinned:
             pack["pinned_finding"] = keep_finding(pinned)
+    if symptoms and not pack.get("pinned_finding"):
+        run = db.scalar(select(MedCheckRun).where(MedCheckRun.patient_id == patient_id))
+        stored = [f for f in ((run.result if run else {}) or {}).get("findings", [])
+                  if f["kind"] in ("timing", "side_effect", "condition") and f["level"] != "ai"]
+        if stored:
+            pack["medication_findings"] = [keep_finding(f) for f in stored[:3]]
     for name in symptoms[:2]:
         found = med_safety.side_effects_for(db, patient_id, name)
         if found:

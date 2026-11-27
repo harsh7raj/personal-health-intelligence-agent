@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "A menstrual cramp has been logged as a new entry, with 1 episode recorded so far and no severity noted.",
+   "A headache (mild, 1 episode) is also currently logged alongside the menstrual cramp.",
+   "On the Thyroid Panel dated 2025-11-23, TSH was 7.2 µIU/mL (reference 0.4 - 4.2), flagged high, and Free T4 was 0.8 ng/dL, at the lower edge of its 0.8 - 1.8 reference range; both are listed as stable."
+  ]
+ }
+}

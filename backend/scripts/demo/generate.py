@@ -89,6 +89,9 @@ def build_timeline(script: dict, today: date) -> list[Event]:
             events.append(_event(at(today, d, b["time"]), "bp",
                                  systolic=round(series(b, *b["systolic"], d)),
                                  diastolic=round(series(b, *b["diastolic"], d))))
+    for pt in readings.get("points", []):  # exact values on chosen days
+        events.append(_event(at(today, pt["days_ago"], pt["time"]), "reading", vital_type=pt["vital_type"],
+                             value=pt["value"], unit=pt.get("unit")))
     if "weight" in readings:
         w = readings["weight"]
         for d in range(days, 0, -w["every_days"]):
@@ -117,18 +120,22 @@ def build_timeline(script: dict, today: date) -> list[Event]:
 
 
 def make_lab_pdf(path: Path, script: dict, report: dict, sample_day: date) -> Path:
-    """An HbA1c / glucose report as a text PDF (so pypdf can read it)."""
+    """A lab report as a text PDF (so pypdf can read it): any panel via `tests`, or Harsh's
+    HbA1c panel via `hba1c` / `fasting_glucose`."""
     path.parent.mkdir(parents=True, exist_ok=True)
     styles = getSampleStyleSheet()
     lab, pt = script["lab"], script["patient"]
-    hba1c = report["hba1c"]
-    eag = round(28.7 * hba1c - 46.7)  # standard HbA1c -> estimated average glucose
-    rows = [
-        ["Test", "Result", "Unit", "Biological reference interval"],
-        ["HbA1c (Glycated haemoglobin)", f"{hba1c}", "%", "4.0 - 5.6"],
-        ["Estimated average glucose (eAG)", f"{eag}", "mg/dL", "-"],
-        ["Fasting plasma glucose", f"{report['fasting_glucose']}", "mg/dL", "70 - 100"],
-    ]
+    rows = [["Test", "Result", "Unit", "Biological reference interval"]]
+    if report.get("tests"):
+        rows += [[t["name"], f"{t['value']}", t.get("unit") or "", t.get("range") or "-"] for t in report["tests"]]
+    else:
+        hba1c = report["hba1c"]
+        eag = round(28.7 * hba1c - 46.7)  # standard HbA1c -> estimated average glucose
+        rows += [
+            ["HbA1c (Glycated haemoglobin)", f"{hba1c}", "%", "4.0 - 5.6"],
+            ["Estimated average glucose (eAG)", f"{eag}", "mg/dL", "-"],
+            ["Fasting plasma glucose", f"{report['fasting_glucose']}", "mg/dL", "70 - 100"],
+        ]
     table = Table(rows, colWidths=[200, 60, 50, 170])
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f3b57")),
@@ -146,11 +153,37 @@ def make_lab_pdf(path: Path, script: dict, report: dict, sample_day: date) -> Pa
         Paragraph(f"Sample collected: {day} &nbsp; Report date: {day} &nbsp; Sample: EDTA whole blood "
                   f"/ fluoride plasma", styles["Normal"]),
         Spacer(1, 12),
-        Paragraph("<b>DIABETES PANEL</b>", styles["Heading3"]),
+        Paragraph(f"<b>{report.get('panel', 'Diabetes Panel').upper()}</b>", styles["Heading3"]),
         table,
         Spacer(1, 14),
-        Paragraph("Method: HbA1c by HPLC (NGSP certified). Computer-generated report. "
-                  "Fictional demo data.", styles["Italic"]),
+        Paragraph(("Method: HbA1c by HPLC (NGSP certified). " if not report.get("tests") else "")
+                  + "Computer-generated report. Fictional demo data.", styles["Italic"]),
     ]
     SimpleDocTemplate(str(path), pagesize=A4).build(story)
     return path
+
+
+def make_photo(pdf: Path, out: Path) -> Path:
+    """A phone-style photo of a report: tilted, slightly blurred, on an off-white background."""
+    import pypdfium2
+    from PIL import ImageFilter
+
+    doc = pypdfium2.PdfDocument(str(pdf))
+    try:
+        img = doc[0].render(scale=2).to_pil().convert("RGB")
+    finally:
+        doc.close()
+    img = img.rotate(3, expand=True, fillcolor=(235, 232, 225)).filter(ImageFilter.GaussianBlur(0.8))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    img.save(out, quality=82)
+    return out
+
+
+def make_live_files(script: dict, today: date) -> list[Path]:
+    """Files kept aside for live uploads in the demo (not replayed): PDFs, or photos of them."""
+    out = []
+    for rep in script.get("live_reports", []):
+        day = today - timedelta(days=rep["days_ago"])
+        pdf = make_lab_pdf(GENERATED_DIR / script["key"] / f"{rep['file']}.pdf", script, rep, day)
+        out.append(make_photo(pdf, pdf.with_suffix(".jpg")) if rep.get("photo") else pdf)
+    return out

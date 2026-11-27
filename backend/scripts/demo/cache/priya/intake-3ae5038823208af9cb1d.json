@@ -1,0 +1,19 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "symptom",
+  "name": "fatigue",
+  "attributes": {
+   "severity": "very",
+   "onset": "lately",
+   "sleep_duration": "9 hours",
+   "persists_after_sleep": true
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [],
+  "other_symptoms": []
+ }
+}

@@ -1,0 +1,20 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "symptom",
+  "name": "fatigue",
+  "attributes": {
+   "onset": "today",
+   "frequency": "recurring (\"again\")"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [],
+  "other_symptoms": [
+   "cold extremities",
+   "weight gain"
+  ]
+ }
+}

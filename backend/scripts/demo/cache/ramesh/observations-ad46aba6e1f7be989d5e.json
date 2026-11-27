@@ -1,0 +1,9 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "The latest blood pressure readings were 150 systolic and 88 diastolic, and both have been stable across logged values.",
+   "Weight was 76.2 and has remained stable in recent entries."
+  ]
+ }
+}

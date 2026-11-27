@@ -70,7 +70,9 @@ def _without_attributed_sentences(text: str) -> str:
 # Who prescribed a medicine is a fact from the record, not the AI prescribing (Phase 5):
 # "Dr. Rao prescribes", "your doctor prescribed", "prescribed by Dr. Rao", "prescriber".
 _PRESCRIBER_FACT = re.compile(
-    r"\b(?:dr\.?\s+[a-z][\w'-]*|(?:your|the|a|their|his|her) doctor)\s+(?:has\s+|had\s+|who\s+)?prescrib\w*"
+    r"\b(?:dr\.?\s+[a-z][\w'-]*|(?:your|the|a|their|his|her) doctor),?\s+"
+    r"(?:has\s+|had\s+|who\s+|who\s+has\s+|also\s+)?prescrib\w*"
+    r"|\b(?:that|which|what)\s+(?:dr\.?\s+[a-z][\w'-]*|your doctor)\s+prescrib\w*"
     r"|\bprescribed by\b|\bprescribers?\b",
     re.IGNORECASE,
 )

@@ -374,6 +374,17 @@ alerts, reports outside range, doses not marked, open medication findings, remin
 on the doctor share link (`/shared/{token}/brief`). Demo replay runs scripted visits through the same path
 with apply_medicines=False (the script carries the medicine history).
 
+### D38 — Priya and Ramesh; demo-ready replies
+Story scripts `priya.yaml` (Thyronorm 75 + Shelcal both at 07:00 from two doctors; last year's tired/cold/
+hair-fall cluster before the dose rise; the same cluster in the last 6 weeks; +2 kg points; TSH 7.2 -> 2.1 ->
+1.9, live photo of TSH 6.8) and `ramesh.yaml` (amlodipine 5 -> 10 mg 60 days ago; ankle swelling from 3 weeks
+later; chest tightness 3 days ago for the live red flag). Generator: `tests` lists for any panel, `readings.points`,
+`live_reports` (PDF or phone photo, not replayed), medicine `ingredients` / `brand_name` / `start_dose`. Each
+reset ends by warming the medication checks (labels/classes cached for offline). Assistant: symptom logs also get
+the stored timing / side-effect / record findings (`medication_findings`, mentioned as pharmacist questions,
+never as causes) and the latest 2 reports (so it never claims a test is missing). The prescriber exception in the
+guard also covers "Dr. X, who prescribed" and "which Dr. X prescribed".
+
 ---
 
 ## 3. PatientHealthState (Pydantic, in-memory shared state)
@@ -610,6 +621,14 @@ pytest suite vs `phia_test` (D11), non-diagnostic guard + audit (D12), loose-end
 ---
 
 ## 9. Work Log (newest first)
+
+- **2026-11-28 (cont. 5)** — **v2 Phase 7: Priya and Ramesh + DEMO_SCRIPT.md** (D38). Owner asked for speed:
+  full checks once per phase, one commit per phase, live checks only for demo moments. Live with real Sonnet:
+  Ramesh's "ankles swollen again" -> swelling from ~3 weeks after the dose increase + the amlodipine label quote +
+  Dr. Shah's instructions + "don't stop or change"; his chest-tightness message -> red-flag escalation, no LLM.
+  Priya's "so tired lately..." -> last year's cluster, latest TSH from the report, the label timing finding as a
+  pharmacist question (after fixes: reports always in the pack; guard exception widened). **Pending:** rehearse
+  the demo 3 times from a fresh reset (owner); Phase 6, 8, 9.
 
 - **2026-11-28 (cont. 4)** — **v2 Phase 3: doctor visit recaps** (D37). Tables + Whisper transcription, Sonnet
   structuring with attribution and code-counted dates, medicine-name checks (incl. misheard names), clash

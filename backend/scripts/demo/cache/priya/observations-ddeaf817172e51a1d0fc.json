@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Knee pain has been logged as a single episode so far, with no severity recorded and no earlier knee pain entries in the data.",
+   "Headache is also logged as one episode and is listed as stable, so there is no pattern of increasing frequency in the current data.",
+   "Across thyroid panels, TSH was 7.2 µIU/mL on 2025-11-23 (above the 0.4–4.2 reference range), then 2.1 on 2026-03-23 and 1.9 on 2026-07-31. Free T4 moved from 0.8 ng/dL to 1.3 and then 1.4 over the same reports."
+  ]
+ }
+}

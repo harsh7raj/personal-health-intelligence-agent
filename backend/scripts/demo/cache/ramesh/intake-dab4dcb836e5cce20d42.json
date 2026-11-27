@@ -1,0 +1,18 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "note",
+  "name": "blood pressure",
+  "attributes": {
+   "concern": "worry"
+  },
+  "value": null,
+  "unit": null,
+  "complete": false,
+  "clarifying_question": "What were your blood pressure readings (systolic and diastolic), if you took them?",
+  "context_tags": [
+   "poor_sleep"
+  ],
+  "other_symptoms": []
+ }
+}

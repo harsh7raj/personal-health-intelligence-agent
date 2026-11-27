@@ -1,0 +1,16 @@
+{
+ "task": "brand_generic",
+ "result": {
+  "ingredients": [
+   {
+    "name": "calcium carbonate",
+    "strength": "500 mg"
+   },
+   {
+    "name": "cholecalciferol",
+    "strength": "250 IU"
+   }
+  ],
+  "confidence": "high"
+ }
+}

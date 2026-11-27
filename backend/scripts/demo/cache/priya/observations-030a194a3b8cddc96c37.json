@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "A mild headache has been logged as a new entry, with 1 headache episode recorded so far.",
+   "Fatigue has been logged 2 times and its trend is stable.",
+   "On the 2025-11-23 Thyroid Panel report, TSH was 7.2 µIU/mL, flagged high against a reference of 0.4–4.2, and Free T4 was 0.8 ng/dL, at the lower end of its 0.8–1.8 range; both values are listed as stable."
+  ]
+ }
+}

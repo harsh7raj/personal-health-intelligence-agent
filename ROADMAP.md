@@ -341,7 +341,7 @@ Each check cites its source.
 ## Phase 7: Demo patients (~2–3 days)
 
 ### Shared machinery
-- [ ] **Story scripts** in `backend/scripts/demo/patients/{harsh,priya,ramesh}.yaml`. Each one covers:
+- [x] **Story scripts** in `backend/scripts/demo/patients/{harsh,priya,ramesh}.yaml`. Each one covers:
   - profile, conditions, and doctors,
   - medicines (brand and generic) with change dates and prescribers,
   - logging habits,
@@ -349,18 +349,18 @@ Each check cites its source.
   - reports (dates and values),
   - visits,
   - the live "climax" inputs and what the reply should do.
-  - *Harsh done (`harsh.yaml`); Priya and Ramesh to follow. Log texts are hand-written in the script, not Sonnet-generated (memory.md D32).*
-- [ ] **Generator** (`scripts/demo/generate.py`) expands a script into 6–9 months of data:
+  - *All three done. Log texts are hand-written in the script, not Sonnet-generated (memory.md D32).*
+- [x] **Generator** (`scripts/demo/generate.py`) expands a script into 6–9 months of data:
   - entries in the patient's own voice (written by Sonnet once),
   - vitals with realistic noise and times of day,
   - dose logs with adherence gaps,
   - lab PDFs (ReportLab, Indian lab layout, fictional lab name),
   - report files kept aside for live uploads (one as a phone-style photo),
   - visit recaps.
-  - *Done for entries, vitals, dose logs and lab PDFs. Live-upload files (incl. the phone photo) come with Phase 4; visit recaps with Phase 3.*
+  - *All done: any lab panel, exact reading points, visit recaps (replayed through the real visit path), and live-upload files incl. Priya's phone photo.*
 - [x] **Replay** (`scripts/demo/replay.py`) feeds everything through the real pipeline in date order, with the clock set to each entry's date (`app/core/clock.py`). That way problems, trends, clusters, observations, and embeddings all come from our own code.
 - [x] **Cache** every LLM output, keyed by an input hash, in `scripts/demo/cache/*.json`. Also cache the openFDA labels and RxClass lookups. Reseeding then runs offline, costs nothing, and gives identical results.
-  - *LLM cache done (a second reset made 0 live calls, 22 s for Harsh). openFDA/RxClass caching comes with Phase 5.*
+  - *Done: LLM cache, plus each reset warms and stores the openFDA labels, RxClass classes and safety check (needs the network once).*
 - [x] **Reset:** `uv run python -m scripts.demo reset` wipes and reloads all three patients.
 - [x] Keep all dates relative to today, so the data is always fresh on demo day.
 
@@ -398,7 +398,7 @@ Each check cites its source.
   - It explains what TSH measures and notes she's logged related symptoms over the past 6 weeks.
   - Tap "What should I ask my doctor?" and save the questions.
 - **Live 3:** open the Medications safety panel. It shows the brand → generic matches and the levothyroxine + calcium finding, with its level and quote. Then open the pre-visit brief for her endocrinologist, which shows the symptoms, the new TSH, the timing finding, and her saved questions.
-- [ ] Check whether levothyroxine + calcium carbonate is in your DDInter table. If it is, it shows as Verified; if not, it should come through the label level.
+- [x] Check whether levothyroxine + calcium carbonate is in your DDInter table. *(It is: Verified, Moderate. The label timing note comes on top.)* If it is, it shows as Verified; if not, it should come through the label level.
 
 ### Ramesh: side-effect awareness and safety escalation
 - 63, hypertension. Amlodipine raised from 5 mg to 10 mg about 2 months ago; also on atorvastatin.
@@ -410,7 +410,7 @@ Each check cites its source.
 - **Live 2:** "chest felt tight climbing stairs again, a bit breathless" (the second time this week). The red-flag banner appears instead of a casual reply, and the app offers the doctor summary PDF or share link.
 
 ### Demo script
-- [ ] Write `DEMO_SCRIPT.md`: the order, exact inputs, expected replies, and what to click (about 12–15 minutes total). Include a backup plan (cached replies, Groq fallback) in case the network or proxy fails.
+- [x] Write `DEMO_SCRIPT.md`: the order, exact inputs, expected replies, and what to click (about 12–15 minutes total). Include a backup plan (cached replies, Groq fallback) in case the network or proxy fails.
 - [ ] Rehearse end to end at least 3 times, starting from a fresh reset each time.
 
 ---
