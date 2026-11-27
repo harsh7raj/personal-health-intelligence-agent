@@ -130,13 +130,13 @@ Budget notes are at the end of this file.
 **Goal:** the patient talks to it. It logs things, answers questions, and remembers, always with dates as evidence. This one engine also powers the report explainer (Phase 4) and the medication explanations (Phase 5).
 
 ### Backend
-- [ ] Add `POST /patients/{id}/chat`, returning `{reply, evidence[], logged_entry?, escalation?}`. Accept an optional `focus` (e.g. `{type: "report", id: 12}`) so other pages can open the assistant with something pinned.
-- [ ] Store turns in a new `chat_messages` table so follow-ups like "and before that?" work.
-- [ ] Update the LangGraph flow and diagram:
+- [x] Add `POST /patients/{id}/chat`, returning `{reply, evidence[], logged_entry?, escalation?}`. Accept an optional `focus` (e.g. `{type: "report", id: 12}`) so other pages can open the assistant with something pinned.
+- [x] Store turns in a new `chat_messages` table so follow-ups like "and before that?" work.
+- [x] Update the LangGraph flow and diagram:
   - logs go `router → intake → memory → reasoning → response`,
   - questions go `router → memory → response`,
   - **response = the assistant reply.**
-- [ ] Write retrieval functions in plain Python (also usable as LLM tools):
+- [x] Write retrieval functions in plain Python (also usable as LLM tools): *(`med_check` / `side_effect_check` arrive with Phase 5; `visit_notes` with Phase 3.)*
   - `symptom_history(name)`: every past episode, from canonical name, synonyms, and semantic matches, with dates and original text. Search **all** history, not just the 180-day window.
   - `around(date, hours=48)`: what else was logged near a date (meals, missed doses, readings, sleep, stress).
   - `vital_series(type, days)` and `lab_series(test)`.
@@ -144,16 +144,16 @@ Budget notes are at the end of this file.
   - `reports(type)` and `visit_notes(doctor=None)`.
   - `med_check(drug_a, drug_b)` and `side_effect_check(symptom)` (from Phase 5).
   - `search(text)`: semantic search over entries, reports, and visit notes.
-- [ ] Build a recurrence detector in `services/recurrence.py`, with no LLM. For a new symptom it finds:
+- [x] Build a recurrence detector in `services/recurrence.py`, with no LLM. For a new symptom it finds:
   - how many prior episodes there were, their dates, and the gaps between them,
   - factors shared across episodes (e.g. "skipped meal within 6h", "dose taken that morning", "glucose < 70 within 24h"),
   - timing relative to medication events (e.g. "all 3 came after the dose change on …").
-- [ ] Assemble an **evidence pack**: compact JSON of facts, entry IDs, and dates. Sonnet writes the reply from this pack only and must cite entry IDs. Reject any reply that cites an ID not in the pack.
-- [ ] **Doctor's instructions:** if a confirmed visit note has a relevant instruction, quote it with attribution ("Dr. Rao said on 12 Aug: …").
-- [ ] **Question mode:** answer things like "How has my sugar been this month?", "When did the headaches start?", or "What did my last thyroid report say?" from the retrieval functions, with citations.
+- [x] Assemble an **evidence pack**: compact JSON of facts, entry IDs, and dates. Sonnet writes the reply from this pack only and must cite entry IDs. Reject any reply that cites an ID not in the pack.
+- [ ] **Doctor's instructions:** if a confirmed visit note has a relevant instruction, quote it with attribution ("Dr. Rao said on 12 Aug: …"). *(Wired via the pack's `doctor_instructions` + prompt rule; needs Phase 3's visit notes.)*
+- [x] **Question mode:** answer things like "How has my sugar been this month?", "When did the headaches start?", or "What did my last thyroid report say?" from the retrieval functions, with citations.
 
 ### Safety
-- [ ] Check red-flag rules in code *before* calling the LLM:
+- [x] Check red-flag rules in code *before* calling the LLM:
   - chest pain or tightness on exertion,
   - fainting,
   - one-sided weakness, face droop, or slurred speech,
@@ -162,24 +162,24 @@ Budget notes are at the end of this file.
   - BP ≥ 180/120,
   - SpO₂ < 92,
   - thoughts of self-harm.
-- [ ] When a red flag fires, show a fixed escalation banner above the reply: "get medical help now / call 112", or Tele-MANAS 14416 for mental health. Verify both numbers before the demo.
-- [ ] Run the non-diagnostic guard on every reply. If it trips, fall back to a plain list of the facts.
-- [ ] Cap cost and speed: Haiku for the router, one Sonnet call per reply (two at most), the system prompt cached. Aim for replies under 5 seconds.
+- [x] When a red flag fires, show a fixed escalation banner above the reply: "get medical help now / call 112", or Tele-MANAS 14416 for mental health. Verify both numbers before the demo.
+- [x] Run the non-diagnostic guard on every reply. If it trips, fall back to a plain list of the facts.
+- [ ] Cap cost and speed: Haiku for the router, one Sonnet call per reply (two at most), the system prompt cached. Aim for replies under 5 seconds. *(One Sonnet call on the reply path; router LLM only when unclear; questions ~5 s, logs ~9–10 s. Caching N/A: the system prompt is below Anthropic's cacheable minimum. Streaming (Phase 6) would help logs.)*
 
 ### Frontend
-- [ ] Turn the Log page into the Assistant chat and make it the landing page:
+- [x] Turn the Log page into the Assistant chat and make it the landing page:
   - user bubble and assistant bubble,
   - a small "Logged: migraine · moderate" tag,
   - date chips that open the original entry,
   - a red banner for escalations.
-- [ ] Show suggested prompts under the input box.
-- [ ] Add a loading state ("Looking through your history…").
-- [ ] Build the chat as a reusable component, so the same chat can open as a side panel on the report and medication pages.
+- [x] Show suggested prompts under the input box.
+- [x] Add a loading state ("Looking through your history…").
+- [x] Build the chat as a reusable component, so the same chat can open as a side panel on the report and medication pages.
 
 ### Done when
 - [ ] Harsh's climax message gives the expected reply 5 runs in a row (Phase 7).
-- [ ] Every date in a reply links to a real entry.
-- [ ] Red-flag test messages always escalate.
+- [x] Every date in a reply links to a real entry. *(Citation check + date chips.)*
+- [x] Red-flag test messages always escalate. *(tests/test_red_flags.py, tests/test_chat.py)*
 
 ---
 

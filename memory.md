@@ -247,6 +247,35 @@ The three existing LLM calls missing from the model plan (observations, report s
 fallback) use the smart tier. `MED_AI_FLAGS_ENABLED` defaults to false until Phase 5. Questions get a holding
 reply until Phase 2 (D21). Dismissed suggestions stay away 14 days (D24).
 
+### Phase 2 decisions (2026-11-28)
+
+### D28 — Retrieval functions (`services/retrieval.py`)
+Plain Python over ALL history: symptom_history (canonical names + problem aliases), around(date, hours),
+vital_series, lab_series, medication_events, missed_doses ("scheduled but not marked taken", never "missed"),
+reports, search (Chroma), visit_notes (Phase 3 stub). Every item has a stable evidence id — E entry,
+V reading, M medicine event, R report, D dose — and an IST date.
+
+### D29 — Recurrence detector (`services/recurrence.py`, no LLM)
+Episodes + gaps; circumstances shared by >= 2 episodes: context tags on the episode or logged <= 6 h before,
+glucose < 70 within 24 h, a dose marked taken earlier that day; the most recent start/dose change before the
+first episode. Circumstances only, never causes.
+
+### D30 — Red flags (`services/red_flags.py`), in code before any LLM
+Roadmap list, matched on the message text and parsed readings (BP >= 180/120, glucose < 54, SpO2 < 92 are also
+read straight from the text). Medical -> fixed message + 112; self-harm -> Tele-MANAS 14416. When one fires the
+reply is a fixed escalation (no LLM) offering the consultation PDF and share link. Verify both numbers before
+the demo.
+
+### D31 — Chat assistant (`POST /patients/{id}/chat`, `services/assistant.py`)
+Turns stored in `chat_messages` (role, content, evidence, meta, entry_id). Graph: logs router -> intake ->
+memory -> reasoning -> response; questions router -> memory -> response (the /intake endpoint keeps the
+Phase 1 holding reply). Code builds an evidence pack (logged entry, recurrence, related entries, readings +
+summary, medicine changes, doses not marked, reports, focus, doctor instructions, recent chat and its cited
+items); Sonnet writes a PLAIN-TEXT reply (`llm_text`, max 600 tokens; JSON mode proved unreliable for prose)
+citing [ids], which the UI renders as clickable dates. Any id outside the pack or a language-guard hit ->
+deterministic fact list. Speed: chat observations run as a background task after the reply; the router LLM
+runs only for mixed/unclear messages. Measured: questions ~5 s, logs ~9-10 s. Prompt caching N/A.
+
 ---
 
 ## 3. PatientHealthState (Pydantic, in-memory shared state)
@@ -376,6 +405,7 @@ Doctor-facing, **gated by token only** (no JWT), **READ-ONLY**, scoped to Respon
   until Phase 2) or `user_question` alongside a processed log (router, D21).
 - `GET /patients/{id}/suggested-actions` · `POST /patients/{id}/suggested-actions/{aid}/dismiss` (D24)
 - `GET /patients/{id}/medications/events?days&medication_id` — start/stop/dose-change history (D20)
+- `POST /patients/{id}/chat` {message, focus?} -> {reply, evidence[], logged_entry?, escalation?} · `GET /patients/{id}/chat` history (D31)
 - Entry outputs (`/entries`, `/symptoms`, timeline detail) include `occurred_at` (D17).
 
 ### System
@@ -398,14 +428,16 @@ Two explicit branch points only: intake-clarify (human-in-loop) and response out
 ### Edges
 ```
 START → router_node               (v2, D21: log | question | both)
-router_node → question_node       [question: not saved; holding reply until Phase 2]
+router_node → question_node       [/intake question: not saved; holding reply]
+router_node → memory_node         [chat question: answered from history, D31]
 router_node → intake_node         [log / both]
 question_node → END
 intake_node → clarify_node        [if critical field missing]
 intake_node → memory_node         [else]
 clarify_node → END                [interrupt; resumes at intake_node on answer, router skipped]
-memory_node → reasoning_node
-reasoning_node → response_node
+memory_node → reasoning_node      [a log]
+memory_node → response_node       [a chat question]
+reasoning_node → response_node    (response = the assistant reply in chat, D31)
 response_node → END
 ```
 
@@ -481,6 +513,17 @@ pytest suite vs `phia_test` (D11), non-diagnostic guard + audit (D12), loose-end
 
 ## 9. Work Log (newest first)
 
+- **2026-11-28** — **v2 Phase 2: chat assistant with memory.** Keys added by the owner; smoke test passed
+  on `claude-sonnet-5-5` / `claude-haiku-5-5`; Groq retired `llama-3.3-70b-versatile`, so the fallback is now
+  `openai/gpt-oss-120b` (also passes). Real Sonnet health story generated, guard-clean. Built: retrieval (D28),
+  recurrence detector (D29), red flags (D30), chat endpoint + `chat_messages` (migration `f2a2fa933ac2`),
+  evidence pack + cited plain-text replies, graph routing for questions, Assistant page (ChatPanel with date
+  chips, escalation banner, suggested prompts). Live fixes found by testing with the real model: summary
+  readings weren't citable; Sonnet sometimes ignored JSON mode (-> `llm_text`); follow-ups cited earlier-turn ids
+  (-> kept in the pack). Speed: deferred observations + router skip; questions ~5 s, logs ~9-10 s.
+  **Tests:** 216 pass (stubbed LLM); ruff clean; no migration drift; frontend builds. Browser-verified: logged
+  tag + date chips, red-flag banner with Call 112 / PDF / share. **Pending:** "Done when" items needing the
+  Harsh demo data (Phase 7); doctor quotes need Phase 3; escalation numbers need a human check before the demo.
 - **2026-11-27** — **v2 Phase 0 + Phase 1 (Claude Code session).** 31 commits on `v2` (one per task),
   on top of the GitHub repo's `main` (= v1). Decisions D15–D27 above.
   **Setup:** started from a zip with no git history; once the owner's personal GitHub repo turned out to hold the
