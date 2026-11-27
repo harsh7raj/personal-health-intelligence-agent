@@ -1,10 +1,11 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, Date, ForeignKey, String, Text, text
+from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Index, String, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core import clock
 from app.db.base import Base
 from app.models.mixins import CreatedAtMixin
 
@@ -13,8 +14,14 @@ class Entry(CreatedAtMixin, Base):
     """Append-only source of truth: what the patient submitted + how Intake parsed it."""
 
     __tablename__ = "entries"
+    __table_args__ = (Index("ix_entries_patient_occurred", "patient_id", "occurred_at"),)
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    # When it happened ("a migraine yesterday" -> yesterday); created_at is when it was
+    # logged. Timeline, problems, clusters and memory all use this one.
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=clock.now, server_default=func.now(), nullable=False
+    )
     patient_id: Mapped[int] = mapped_column(
         ForeignKey("patients.id", ondelete="CASCADE"), index=True, nullable=False
     )

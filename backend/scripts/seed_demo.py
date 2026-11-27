@@ -200,6 +200,7 @@ def seed() -> None:
             fact = {"type": "symptom", **struct, "complete": True}
             e = Entry(patient_id=pid, type="symptom", raw_text=text, structured=fact, source="seed")
             e.created_at = ts
+            e.occurred_at = ts
             db.add(e)
             db.flush()
             embed_docs.append(text)

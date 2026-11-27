@@ -92,7 +92,14 @@ function ThreadRow({ entry, intel }: { entry: HistoryEntry; intel?: Intel }) {
           {entry.raw_text || <span className="italic opacity-80">(no text)</span>}
         </div>
       </div>
-      <p className="pr-1 text-right text-[11px] text-muted-foreground">{fmtTime(entry.created_at)}</p>
+      <p className="pr-1 text-right text-[11px] text-muted-foreground">
+        {fmtTime(entry.created_at)}
+        {fmtDay(entry.occurred_at) !== fmtDay(entry.created_at) && (
+          <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">
+            happened {fmtDay(entry.occurred_at)}
+          </span>
+        )}
+      </p>
       <div className="max-w-[85%]">
         <div className="inline-flex items-center gap-1.5 rounded-2xl rounded-bl-sm border border-border bg-muted px-3.5 py-2 text-sm">
           <Check className="h-3.5 w-3.5 shrink-0 text-teal-600" />

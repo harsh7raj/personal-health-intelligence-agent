@@ -125,7 +125,7 @@ function DetailModal({ patientId, ev, onClose }: { patientId: number; ev: Ev; on
                   <div className="mb-1 flex items-center gap-2">
                     <Badge className="border-border bg-muted/50 text-muted-foreground">{e.type}</Badge>
                     {e.source && <span className="text-xs text-muted-foreground">via {e.source}</span>}
-                    <span className="ml-auto text-xs text-muted-foreground">{fmtDateTime(e.created_at)}</span>
+                    <span className="ml-auto text-xs text-muted-foreground">{fmtDateTime(e.occurred_at)}</span>
                   </div>
                   {e.raw_text ? (
                     <p className="text-sm text-foreground">“{e.raw_text}”</p>

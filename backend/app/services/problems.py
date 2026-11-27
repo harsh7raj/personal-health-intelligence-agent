@@ -1,6 +1,6 @@
 """Active/Resolved problem maintenance from symptom entries (D3 single table)."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,12 +18,25 @@ def _norm(name: str | None) -> str:
     return (name or "").strip().lower()
 
 
+def occurred_at(new_entry: dict) -> datetime:
+    """When the episode happened (backdated by intake), else now."""
+    raw = new_entry.get("occurred_at")
+    if isinstance(raw, datetime):
+        return raw
+    if isinstance(raw, str):
+        try:
+            return datetime.fromisoformat(raw)
+        except ValueError:
+            pass
+    return clock.now()
+
+
 def upsert_problem_from_symptom(db: Session, patient_id: int, new_entry: dict) -> Problem:
     s = new_entry.get("structured", {}) or {}
     name = new_entry.get("name") or s.get("name") or "unspecified symptom"
     attrs = s.get("attributes", {}) or {}
     severity = attrs.get("severity")
-    now = clock.now()
+    when = occurred_at(new_entry)
     norm = _norm(name)
 
     existing = next(
@@ -42,7 +55,9 @@ def upsert_problem_from_symptom(db: Session, patient_id: int, new_entry: dict) -
     if existing is not None:
         count = int((existing.attributes or {}).get("episode_count", 1)) + 1
         existing.attributes = {**(existing.attributes or {}), "episode_count": count}
-        existing.last_seen = now
+        # A backdated episode can be older than what we've seen; widen both ends.
+        existing.last_seen = max(existing.last_seen, when) if existing.last_seen else when
+        existing.first_seen = min(existing.first_seen, when) if existing.first_seen else when
         existing.frequency = f"{count} episodes"
         existing.trend = "increasing" if count >= 3 else "stable"
         if severity:
@@ -56,8 +71,8 @@ def upsert_problem_from_symptom(db: Session, patient_id: int, new_entry: dict) -
         severity=severity,
         frequency="1 episode",
         trend=None,
-        first_seen=now,
-        last_seen=now,
+        first_seen=when,
+        last_seen=when,
         attributes={"episode_count": 1},
     )
     db.add(prob)

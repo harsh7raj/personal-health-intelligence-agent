@@ -91,7 +91,8 @@ class SymptomOut(BaseModel):
     raw_text: Optional[str] = None
     structured: dict[str, Any] = Field(default_factory=dict)
     source: Optional[str] = None
-    created_at: datetime
+    created_at: datetime  # when it was logged
+    occurred_at: datetime  # when it happened (backdated)
 
 
 # --- Entries (full append-only history, all types) ---
@@ -104,4 +105,5 @@ class EntryOut(BaseModel):
     raw_text: Optional[str] = None
     structured: dict[str, Any] = Field(default_factory=dict)
     source: Optional[str] = None
-    created_at: datetime
+    created_at: datetime  # when it was logged
+    occurred_at: datetime  # when it happened (backdated)

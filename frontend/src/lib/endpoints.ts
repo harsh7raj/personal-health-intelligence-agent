@@ -39,6 +39,7 @@ export interface Medication {
 export interface Symptom {
   id: number; patient_id: number; type: string; raw_text: string | null
   structured: Record<string, unknown>; source: string | null; created_at: string
+  occurred_at: string
 }
 export interface Problem {
   id: number; name: string; severity: string | null; frequency: string | null
@@ -85,11 +86,13 @@ export interface HistoryEntry {
   raw_text: string | null
   structured: Record<string, unknown>
   source: string | null
-  created_at: string
+  created_at: string // when it was logged
+  occurred_at: string // when it happened (backdated)
 }
 export interface TimelineEntryDetail {
   id: number; type: string; raw_text: string | null
   structured: Record<string, unknown>; source: string | null; created_at: string
+  occurred_at: string
 }
 export interface TimelineVitalDetail {
   id: number; vital_type: string; value: number; unit: string | null; recorded_at: string

@@ -23,7 +23,7 @@ def update_clusters(db: Session, patient_id: int, new_entry: dict) -> SymptomClu
         select(Entry).where(
             Entry.patient_id == patient_id,
             Entry.type == "symptom",
-            Entry.created_at >= window,
+            Entry.occurred_at >= window,
         )
     ).all()
 

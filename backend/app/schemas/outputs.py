@@ -93,6 +93,7 @@ class TimelineEntryDetail(BaseModel):
     structured: dict[str, Any] = Field(default_factory=dict)
     source: Optional[str] = None
     created_at: datetime
+    occurred_at: datetime
 
 
 class TimelineVitalDetail(BaseModel):

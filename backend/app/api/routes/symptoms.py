@@ -55,7 +55,7 @@ def create_symptom(
                     "patient_id": patient.id,
                     "entry_id": entry.id,
                     "type": SYMPTOM,
-                    "date": entry.created_at.isoformat() if entry.created_at else "",
+                    "date": entry.occurred_at.isoformat() if entry.occurred_at else "",
                 }
             ],
         )
@@ -70,7 +70,7 @@ def list_symptoms(patient: OwnedPatient, db: DbSession) -> list[Entry]:
         db.scalars(
             select(Entry)
             .where(Entry.patient_id == patient.id, Entry.type == SYMPTOM)
-            .order_by(Entry.created_at)
+            .order_by(Entry.occurred_at)
         ).all()
     )
 

@@ -47,7 +47,7 @@ _ITALIC = ParagraphStyle("phiaItalic", parent=_styles["Italic"], fontSize=9, tex
 
 
 def _earliest(db: Session, patient_id: int) -> datetime | None:
-    e = db.scalar(select(func.min(Entry.created_at)).where(Entry.patient_id == patient_id))
+    e = db.scalar(select(func.min(Entry.occurred_at)).where(Entry.patient_id == patient_id))
     v = db.scalar(select(func.min(VitalReading.recorded_at)).where(VitalReading.patient_id == patient_id))
     dates = [d for d in (e, v) if d is not None]
     return min(dates) if dates else None
@@ -128,9 +128,9 @@ def _problem_pattern(db: Session, patient_id: int, name: str) -> str | None:
     ).all()
     norm = name.strip().lower()
     dates = sorted(
-        e.created_at
+        e.occurred_at
         for e in rows
-        if e.created_at and str((e.structured or {}).get("name", "")).strip().lower() == norm
+        if e.occurred_at and str((e.structured or {}).get("name", "")).strip().lower() == norm
     )
     if len(dates) < 2:
         return None

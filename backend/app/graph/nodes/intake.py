@@ -5,6 +5,7 @@ from app.core.llm import is_available, llm_json
 from app.db.session import SessionLocal
 from app.graph.state import GraphState
 from app.models.records import Entry
+from app.services.onset import resolve_onset
 from app.vectorstore.collections import get_entries_collection
 
 logger = logging.getLogger(__name__)
@@ -15,7 +16,9 @@ _SYSTEM_PROMPT = """You are a medical intake parser. Convert the user's free-tex
 log into a single structured JSON fact. Return ONLY a JSON object with keys:
 - type: one of "symptom","vital","report","medication","note"
 - name: short normalized name (e.g. "headache", "blood pressure", "amlodipine")
-- attributes: object of extracted details (severity, duration, onset, frequency, location, ...)
+- attributes: object of extracted details (severity, duration, onset, frequency, location, ...). \
+"onset" is the user's OWN WORDS for when it started or happened, only if they said it \
+(e.g. "yesterday", "last night", "since Monday", "2 days ago"); never turn it into a date.
 - value: number for a SINGLE-number vital (heart rate, weight, glucose, SpO2, temperature), else null
 - unit: string unit for that single value if present, else null
 - complete: boolean — true if clear enough to record; false if a key field is missing
@@ -67,6 +70,12 @@ def intake_node(state: GraphState) -> dict:
             or "Could you provide a bit more detail?",
         }
 
+    # When it happened: the LLM quotes the onset words, code resolves them (D17).
+    onset = (fact.get("attributes") or {}).get("onset")
+    occurred = (
+        resolve_onset(text, phrase=onset if isinstance(onset, str) else None) or clock.now()
+    )
+
     # Persist the entry (append-only source of truth), then embed it.
     with SessionLocal() as db:
         entry = Entry(
@@ -75,12 +84,12 @@ def intake_node(state: GraphState) -> dict:
             raw_text=text,
             structured=fact,
             source="intake",
+            occurred_at=occurred,
         )
         db.add(entry)
         db.commit()
         db.refresh(entry)
         entry_id = entry.id
-        created = entry.created_at
 
     get_entries_collection().add(
         documents=[text],
@@ -90,7 +99,7 @@ def intake_node(state: GraphState) -> dict:
                 "patient_id": state.patient_id,
                 "entry_id": entry_id,
                 "type": fact["type"],
-                "date": (created or clock.now()).isoformat(),
+                "date": occurred.isoformat(),
             }
         ],
     )
@@ -102,6 +111,7 @@ def intake_node(state: GraphState) -> dict:
             "name": fact.get("name"),
             "structured": fact,
             "raw_text": text,
+            "occurred_at": occurred.isoformat(),
         },
         "needs_clarification": False,
         "pending_question": None,

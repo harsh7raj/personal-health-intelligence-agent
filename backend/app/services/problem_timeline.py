@@ -73,7 +73,7 @@ def build_problem_timeline(
                     Entry.patient_id == patient_id,
                     func.lower(Entry.structured["name"].astext).in_(names),
                 )
-                .order_by(Entry.created_at)
+                .order_by(Entry.occurred_at)
             ).all()
         )
 
@@ -95,13 +95,13 @@ def build_problem_timeline(
 
     # Episodes (one per matched entry). Tag the earliest as the first report so we
     # don't also emit a redundant first_seen milestone on the same day.
-    first_episode_date = entries[0].created_at if entries else None
+    first_episode_date = entries[0].occurred_at if entries else None
     for i, e in enumerate(entries):
         sev = (e.structured or {}).get("attributes", {}).get("severity")
         first = i == 0
         points.append(
             {
-                "date": e.created_at,
+                "date": e.occurred_at,
                 "kind": "episode",
                 "label": ("First reported · " if first else "") + (problem.name),
                 "detail": (e.raw_text or "").strip() or None,
@@ -130,7 +130,7 @@ def build_problem_timeline(
         third = entries[2]
         points.append(
             {
-                "date": third.created_at,
+                "date": third.occurred_at,
                 "kind": "trend_change",
                 "label": "Pattern became recurrent (3rd episode → increasing)",
                 "detail": None,

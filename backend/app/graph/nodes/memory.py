@@ -87,8 +87,8 @@ def memory_node(state: GraphState) -> dict:
         cutoff = clock.now() - timedelta(days=settings.RECENT_WINDOW_DAYS)
         recent = db.scalars(
             select(Entry)
-            .where(Entry.patient_id == pid, Entry.created_at >= cutoff)
-            .order_by(Entry.created_at.desc())
+            .where(Entry.patient_id == pid, Entry.occurred_at >= cutoff)
+            .order_by(Entry.occurred_at.desc())
         ).all()
 
         context_bundle = {
@@ -122,7 +122,7 @@ def memory_node(state: GraphState) -> dict:
                     "id": e.id,
                     "type": e.type,
                     "raw_text": e.raw_text,
-                    "date": e.created_at.isoformat() if e.created_at else None,
+                    "date": e.occurred_at.isoformat() if e.occurred_at else None,
                 }
                 for e in recent
             ],
