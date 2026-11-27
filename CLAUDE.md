@@ -21,9 +21,10 @@ React + Vite + TypeScript frontend in `frontend/`.
 
 ## How to work
 - Work on the `v2` branch, one phase at a time, following ROADMAP.md's "Suggested order" unless told otherwise.
-  One commit per task, with a clear message. `main` stays the demo-able v1 baseline.
-- **Never push and never add a git remote.** The owner publishes the repo to their personal GitHub themselves.
-  Commits use a repo-local placeholder author on purpose; don't change it (the owner re-authors before publishing).
+  One commit per task, with a clear message. `main` stays the demo-able v1 (as on GitHub); v2 lands via a PR.
+- **GitHub:** `origin` is the owner's personal repo `harsh7raj/personal-health-intelligence-agent` (public).
+  Push only when the owner asks, only to `origin`, and only as `harsh7raj`: a repo-local credential helper
+  fetches that account's token from `gh`, so never change it or push with any other GitHub account.
 - Keep the app runnable at the end of every phase. Minimal, focused changes; don't rewrite things that work.
 - After each task, run what's relevant and don't move on with failures:
   - backend (in `backend/`): `uv run ruff check .`, `uv run pytest`, `uv run alembic check`

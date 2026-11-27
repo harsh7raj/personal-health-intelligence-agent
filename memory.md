@@ -237,7 +237,10 @@ No Docker and no admin rights: Postgres 16 runs from EDB's portable zip at `%LOC
 (`LOCAL_PG_HOME`); Docker users keep `docker compose up -d`. Chroma runs embedded (`CHROMA_MODE=embedded`,
 compose = Postgres only); stop the API before seeding (single writer). One command: `uv run python -m
 scripts.dev` (Postgres → create DB → migrate → seed if missing → API :8001 + web :5173). Python pinned to 3.11.
-Git is local only and never pushed (the machine's GitHub is a company account); commits use a placeholder author.
+Git: `v2` sits on top of the GitHub repo's `main` (`harsh7raj/personal-health-intelligence-agent`, public;
+its tree matched the downloaded zip exactly), authored with the owner's usual identity. Push only to `origin` and
+only as `harsh7raj` (a repo-local credential helper takes that account's token from `gh`); never use any other
+GitHub login on this machine for this repo.
 
 ### D27 — Choices for things the roadmap didn't cover (user-confirmed 2026-11-27)
 The three existing LLM calls missing from the model plan (observations, report summary, AI drug-reference
@@ -478,9 +481,10 @@ pytest suite vs `phia_test` (D11), non-diagnostic guard + audit (D12), loose-end
 
 ## 9. Work Log (newest first)
 
-- **2026-11-27** — **v2 Phase 0 + Phase 1 (Claude Code session).** 30 commits on `v2` (one per task);
-  `main` = untouched v1. Decisions D15–D27 above.
-  **Setup:** local git only (never pushed; placeholder author until the owner re-authors); ROADMAP.md moved into
+- **2026-11-27** — **v2 Phase 0 + Phase 1 (Claude Code session).** 31 commits on `v2` (one per task),
+  on top of the GitHub repo's `main` (= v1). Decisions D15–D27 above.
+  **Setup:** started from a zip with no git history; once the owner's personal GitHub repo turned out to hold the
+  same files, `v2` was rebased onto its `main` and authored as the owner (see D26); ROADMAP.md moved into
   the repo; CLAUDE.md holds the standing rules. This Windows machine has no Docker and no admin rights, so:
   uv via winget, Python pinned to 3.11, Postgres 16.16 from EDB's portable zip at `%LOCALAPPDATA%\phia-postgres`
   (`LOCAL_PG_HOME`), Chroma embedded. One command: `uv run python -m scripts.dev`.
