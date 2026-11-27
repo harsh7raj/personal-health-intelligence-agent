@@ -20,9 +20,9 @@ from app.models.clinical import DoseLog, Medication
 from app.services.drug_reference_ai import ai_reference
 from app.services.rxnorm import normalize_ingredient
 
-# Rolling window: a week of history (markable adherence) + the coming week (planning).
-DAYS_BACK = 7
-DAYS_FORWARD = 6  # inclusive → 7 back + today + 6 forward = 14 days
+# Rolling window: the last 14 days ending today (adherence at a glance; one row per medicine).
+DAYS_BACK = 13
+DAYS_FORWARD = 0  # inclusive -> 13 back + today = 14 days
 
 DISCLAIMER = (
     "For tracking only — not medical advice. Doses marked taken or left unmarked here are "
