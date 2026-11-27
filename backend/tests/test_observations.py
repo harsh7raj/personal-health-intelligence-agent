@@ -49,7 +49,11 @@ def test_payload_and_evidence_carry_the_related_entries(db, monkeypatch):
     )
     db.flush()
     assert seen["task"] == "observations"
-    assert [e["entry_id"] for e in seen["payload"]["related_past_entries"]] == [11, 12]
+    # The model gets dates (it cites by date), not database ids: keeps the prompt stable
+    # across demo re-seeds. The stored evidence keeps the ids.
+    assert [e["date"] for e in seen["payload"]["related_past_entries"]] == ["2026-03-02", "2026-02-10"]
+    assert all("entry_id" not in e for e in seen["payload"]["related_past_entries"])
     assert created == ["A similar migraine was logged on 2026-03-02."]
     stored = db.query(Observation).filter_by(patient_id=patient.id).one()
-    assert stored.evidence["related_past_entries"][0]["date"] == "2026-03-02"
+    assert stored.evidence["related_past_entries"][0] == {
+        "entry_id": 11, "date": "2026-03-02", "text": "migraine behind one eye"}

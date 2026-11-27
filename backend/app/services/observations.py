@@ -50,6 +50,13 @@ def related_past_entries(context_bundle: dict | None) -> list[dict]:
     return out[:RELATED_LIMIT]
 
 
+def _for_llm(payload: dict) -> dict:
+    """What the model sees: the evidence minus database ids (it cites by date). Keeps the
+    prompt identical across demo re-seeds, so cached answers are reused."""
+    related = [{k: v for k, v in r.items() if k != "entry_id"} for r in payload["related_past_entries"]]
+    return {**payload, "related_past_entries": related}
+
+
 def generate_observations(
     db: Session, patient_id: int, new_entry: dict, context_bundle: dict | None
 ) -> list[str]:
@@ -62,11 +69,11 @@ def generate_observations(
             select(Problem).where(
                 Problem.patient_id == patient_id,
                 Problem.status.in_(["active", "managed"]),
-            )
+            ).order_by(Problem.name)
         ).all()
     ]
     all_summaries = db.scalars(
-        select(VitalSummary).where(VitalSummary.patient_id == patient_id)
+        select(VitalSummary).where(VitalSummary.patient_id == patient_id).order_by(VitalSummary.vital_type)
     ).all()
     # Split real vital signs from report-derived lab series (namespaced "lab_*") so the
     # LLM can tell "your BP" apart from "your LDL from the lipid panel".
@@ -88,7 +95,7 @@ def generate_observations(
     clusters = [
         {"symptoms": c.symptoms, "occurrences": c.occurrences}
         for c in db.scalars(
-            select(SymptomCluster).where(SymptomCluster.patient_id == patient_id)
+            select(SymptomCluster).where(SymptomCluster.patient_id == patient_id).order_by(SymptomCluster.id)
         ).all()
     ]
     # Report chunks the Memory agent retrieved for this entry (lab values, summaries).
@@ -108,7 +115,7 @@ def generate_observations(
     }
 
     try:
-        res = llm_json("observations", _SYSTEM, json.dumps(payload))
+        res = llm_json("observations", _SYSTEM, json.dumps(_for_llm(payload)))
     except Exception:
         logger.warning("observation generation failed", exc_info=True)
         return []
