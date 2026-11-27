@@ -7,14 +7,14 @@ import {
   LayoutDashboard,
   LogOut,
   Pill,
-  PlusCircle,
+  MessageCircle,
   Share2,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
 const NAV = [
-  { to: "/", label: "Log", icon: PlusCircle, end: true },
+  { to: "/", label: "Assistant", icon: MessageCircle, end: true },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/vitals", label: "Vitals", icon: Activity },
   { to: "/story", label: "Story", icon: BookOpen },

@@ -5,7 +5,7 @@ import LoginPage from "@/pages/LoginPage"
 import RegisterPage from "@/pages/RegisterPage"
 import OnboardingPage from "@/pages/OnboardingPage"
 import DashboardPage from "@/pages/DashboardPage"
-import LogPage from "@/pages/LogPage"
+import AssistantPage from "@/pages/AssistantPage"
 import VitalsPage from "@/pages/VitalsPage"
 import StoryPage from "@/pages/StoryPage"
 import SharePage from "@/pages/SharePage"
@@ -33,7 +33,7 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedLayout />,
     children: [
-      { path: "/", element: <LogPage /> },
+      { path: "/", element: <AssistantPage /> },
       { path: "/dashboard", element: <DashboardPage /> },
       { path: "/vitals", element: <VitalsPage /> },
       { path: "/story", element: <StoryPage /> },

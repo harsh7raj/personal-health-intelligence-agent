@@ -325,3 +325,30 @@ export const getSharedSnapshot = (token: string) =>
 export const getSharedStory = (token: string) =>
   api.get<Story>(`/shared/${token}/story`).then((r) => r.data)
 export const sharedPdfUrl = (token: string) => `${import.meta.env.VITE_API_BASE ?? "/api"}/shared/${token}/consultation/pdf`
+
+// ---------- Assistant chat (Phase 2) ----------
+export interface ChatEvidence {
+  id: string; kind: string; date?: string | null; time?: string | null; text?: string | null
+  name?: string | null; value?: number; unit?: string | null; vital_type?: string
+  medication?: string; event?: string; old_dose?: string | null; new_dose?: string | null
+  report_type?: string | null; entry_id?: number
+}
+export interface ChatEscalation {
+  kind: "medical" | "mental_health"; reasons: string[]; message: string; call: string; offer?: string[]
+}
+export interface LoggedTag {
+  entry_id: number; type: string; name: string | null; severity?: string | null
+  tags: string[]; occurred_at?: string | null
+}
+export interface ChatReply {
+  message_id: number; reply: string; evidence: ChatEvidence[]; logged_entry: LoggedTag | null
+  escalation: ChatEscalation | null; needs_clarification: boolean; generated_by: string | null
+}
+export interface ChatMessage {
+  id: number; role: "user" | "assistant"; content: string; evidence: ChatEvidence[]; created_at: string
+  meta: { logged_entry?: LoggedTag; escalation?: ChatEscalation; generated_by?: string; clarify_for?: string }
+}
+export const sendChat = (id: number, message: string, focus?: Record<string, unknown>) =>
+  api.post<ChatReply>(`/patients/${id}/chat`, { message, focus }).then((r) => r.data)
+export const getChatHistory = (id: number) =>
+  api.get<ChatMessage[]>(`/patients/${id}/chat`).then((r) => r.data)
