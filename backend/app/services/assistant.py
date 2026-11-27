@@ -13,10 +13,11 @@ from sqlalchemy.orm import Session
 
 from app.core import clock
 from app.core.llm import is_available, llm_text
+from app.data.lab_glossary import mentioned as mentioned_tests
 from app.data.symptom_synonyms import SYNONYMS, canonical_symptom
 from app.models.clinical import Medication, Problem
-from app.models.records import ChatMessage
-from app.services import red_flags, retrieval
+from app.models.records import ChatMessage, Report
+from app.services import red_flags, report_explainer, retrieval
 from app.services.language_guard import is_diagnostic
 from app.services.recurrence import detect
 from app.services.vitals_trend import extract_readings
@@ -50,7 +51,8 @@ medicine change they all came after, then suggest practical \
 next steps the record supports: checking and logging a reading, and raising the pattern with \
 their doctor. If the pack does not answer a question, say so plainly.
 Write 2 to 6 short sentences in plain language, addressed to the user ("you").
-Return only the reply text, with its [ids]."""
+Return only the reply text, with its [ids].
+""" + report_explainer.FOLLOW_UP_RULES
 
 
 def _mentioned_symptoms(db: Session, patient_id: int, text: str) -> list[str]:
@@ -152,11 +154,23 @@ def build_pack(
         not_marked = retrieval.missed_doses(db, patient_id, days=14)
         pack["doses_not_marked_taken_last_14_days"] = {"count": len(not_marked), "examples": not_marked[:6]}
 
-    if any(w in text for w in _REPORT_WORDS) or (focus or {}).get("type") == "report":
-        reps = retrieval.reports(db, patient_id)
-        if (focus or {}).get("type") == "report":
-            reps = [r for r in reps if r["report_id"] == focus.get("id")] or reps
-        pack["reports"] = [keep(r) for r in reps[:3]]
+    focused = None
+    if (focus or {}).get("type") == "report":
+        focused = db.get(Report, focus.get("id"))
+        if focused is None or focused.patient_id != patient_id or focused.status != "parsed":
+            focused = None
+    if focused is not None:  # the report explainer's follow-ups (Phase 4)
+        rp, rp_items = report_explainer.build_report_pack(db, patient_id, focused)
+        items.update(rp_items)
+        pack["focused_report"] = {k: rp[k] for k in ("report", "critical", "glossary",
+                                                      "logged_symptoms_around_report", "conditions")}
+        pack["current_medicines_with_purpose"] = rp["current_medicines"]
+    elif any(w in text for w in _REPORT_WORDS):
+        pack["reports"] = [keep(r) for r in retrieval.reports(db, patient_id)[:3]]
+    asked = mentioned_tests(message)
+    if asked:  # "what is TSH?": its glossary entry, citable
+        have = {g["test_key"] for g in (pack.get("focused_report") or {}).get("glossary", [])}
+        pack["glossary"] = [keep(report_explainer.glossary_item(k)) for k in asked if k not in have][:4]
 
     notes = retrieval.visit_notes(db, patient_id)
     if notes:
@@ -195,6 +209,10 @@ def _fallback(pack: dict, items: dict[str, dict]) -> str:
         latest = s["summary"]["latest"]
         lines.append(f"Latest {vital_type.replace('_', ' ')}: {latest['value']:g} on {latest['date']} [{latest['id']}] "
                      f"(average {s['summary']['average']:g} across {s['summary']['count']} readings).")
+    if pack.get("focused_report"):
+        lines.append(report_explainer._fallback(pack["focused_report"]))
+    for g in pack.get("glossary", []):
+        lines.append(f"{g['name']} [{g['id']}]: {g['measures']}")
     for rep in pack.get("reports", [])[:1]:
         lines.append(f"Latest report: {rep['report_type']} on {rep['date']} [{rep['id']}].")
     if pack.get("recurrence"):

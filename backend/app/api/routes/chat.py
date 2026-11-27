@@ -81,8 +81,10 @@ def chat(
     if pending:  # this message answers the assistant's clarifying question
         text, skip_router = f"{pending}\nAdditional info: {text}", True
 
+    report_id = (payload.focus or {}).get("id") if (payload.focus or {}).get("type") == "report" else None
+    thread = {"report_id": report_id} if report_id else {}  # the report explainer's thread
     user_msg = ChatMessage(patient_id=patient.id, role="user", content=payload.message.strip(),
-                           meta={"focus": payload.focus} if payload.focus else {})
+                           meta={"focus": payload.focus, **thread} if payload.focus else {})
     db.add(user_msg)
     db.commit()
 
@@ -102,7 +104,7 @@ def chat(
     if get("needs_clarification"):
         reply = get("pending_question") or "Could you add a bit more detail?"
         out = ChatOut(message_id=0, reply=reply, needs_clarification=True, generated_by="clarify")
-        meta: dict = {"clarify_for": text}
+        meta: dict = {"clarify_for": text, **thread}
     else:
         logged = _logged_tag(get("new_entry"))
         out = ChatOut(
@@ -110,7 +112,7 @@ def chat(
             logged_entry=logged, escalation=get("escalation"), generated_by=get("generated_by"),
         )
         meta = {k: v for k, v in {"logged_entry": logged, "escalation": out.escalation,
-                                  "generated_by": out.generated_by}.items() if v}
+                                  "generated_by": out.generated_by, **thread}.items() if v}
         if logged:
             user_msg.entry_id = logged["entry_id"]
             background.add_task(_observe_later, patient.id, get("new_entry"), get("context_bundle"))
@@ -125,10 +127,11 @@ def chat(
 
 @router.get("/{patient_id}/chat", response_model=list[ChatMessageOut])
 def chat_history(
-    patient: OwnedPatient, db: DbSession, limit: int = Query(50, ge=1, le=200)
+    patient: OwnedPatient, db: DbSession, limit: int = Query(50, ge=1, le=200),
+    report_id: Optional[int] = Query(None, description="only the thread pinned to this report"),
 ) -> list[ChatMessage]:
-    rows = db.scalars(
-        select(ChatMessage).where(ChatMessage.patient_id == patient.id)
-        .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc()).limit(limit)
-    ).all()
+    q = select(ChatMessage).where(ChatMessage.patient_id == patient.id)
+    if report_id is not None:
+        q = q.where(ChatMessage.meta["report_id"].astext == str(report_id))
+    rows = db.scalars(q.order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc()).limit(limit)).all()
     return list(reversed(rows))

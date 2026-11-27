@@ -53,6 +53,8 @@ class ReportListItem(BaseModel):
     flagged_values: list[FlaggedValue] = []
     # Total flagged count (may exceed the 3 shown above).
     flagged_count: int = 0
+    # Values past a critical limit (decided in code, D33): the card shows a banner.
+    critical_count: int = 0
     parse_error: Optional[str] = None
     created_at: datetime  # upload date
 
@@ -74,3 +76,12 @@ class ReportDetail(BaseModel):
     created_at: datetime
     # Relative API path to download the original uploaded file.
     download_url: str
+    # Every value as code sees it: numeric range, flag, how far outside, previous value and
+    # change, critical finding, glossary id (Phase 4, memory.md D34).
+    values: list[dict[str, Any]] = []
+    critical: list[dict[str, Any]] = []
+
+
+class DoctorQuestions(BaseModel):
+    questions: list[str]
+    generated_by: str
