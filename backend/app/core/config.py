@@ -73,6 +73,9 @@ class Settings(BaseSettings):
         "drug_reference": "smart",
         "story": "smart",
         "assistant": "smart",
+        "report_vision": "vision",
+        "report_explainer": "smart",
+        "report_questions": "smart",
     }
     # Fallback when the proxy fails or isn't configured: Groq. GROQ_API_KEY still works (v1 name).
     FALLBACK_BASE_URL: str = "https://api.groq.com/openai/v1"
@@ -80,6 +83,7 @@ class Settings(BaseSettings):
         default="", validation_alias=AliasChoices("FALLBACK_API_KEY", "GROQ_API_KEY")
     )
     FALLBACK_MODEL: str = "openai/gpt-oss-120b"  # Groq retired llama-3.3-70b-versatile
+    FALLBACK_VISION_MODEL: str = "meta-llama/llama-4-scout-17b-16e-instruct"  # report photos/scans
     # Fail over fast: short connect timeout, at most one retry on the proxy.
     LLM_CONNECT_TIMEOUT: float = 5.0
     LLM_PRIMARY_MAX_RETRIES: int = 1

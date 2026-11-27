@@ -8,6 +8,8 @@ NO ChromaDB, Memory, or Reasoning wiring here — that is Part 2. This module on
 produces and stores the structured extraction.
 """
 
+import base64
+import io
 import json
 import logging
 from datetime import date, datetime, time, timezone
@@ -16,7 +18,7 @@ from pathlib import Path
 from sqlalchemy import func, select
 
 from app.core import clock
-from app.core.llm import is_available, llm_json
+from app.core.llm import is_available, llm_json, llm_vision_json
 from app.db.session import SessionLocal
 from app.models.clinical import VitalReading, VitalSummary
 from app.models.records import Report
@@ -35,6 +37,9 @@ logger = logging.getLogger(__name__)
 _MIN_TEXT_CHARS = 20
 
 _VALID_FLAGS = {"normal", "high", "low", "unknown"}
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
+_MAX_PAGES = 3  # first pages of a scanned PDF sent to the vision model
+_MAX_SIDE = 2000  # px; enough to read small print, keeps the request small
 _KNOWN_TYPES = {
     "Diabetes Panel",
     "Lipid Panel",
@@ -82,23 +87,23 @@ class ExtractionError(Exception):
 class OcrRequiredError(ExtractionError):
     """The file appears to be a scanned/image-only PDF with no embedded text.
 
-    TODO(Part-?): add an OCR fallback (e.g. pytesseract / cloud OCR) for scanned and
-    photographed reports. Out of scope for this phase — we fail loudly with a clear
-    parse_error rather than silently storing an empty extraction.
+    parse_report then reads the pages with the vision model instead (D33).
     """
 
 
 def extract_text_from_file(path: str | Path) -> str:
     """Extract raw text from an uploaded report file.
 
-    Supports text-based PDFs and plain-text files. Image-only/scanned PDFs raise
-    OcrRequiredError (OCR is a TODO, see above) instead of returning empty text.
+    Supports text-based PDFs and plain-text files. Photos and image-only/scanned PDFs
+    raise OcrRequiredError; parse_report sends those to the vision model.
     """
     p = Path(path)
     if not p.exists():
         raise ExtractionError(f"file not found on disk: {p}")
 
     suffix = p.suffix.lower()
+    if suffix in IMAGE_SUFFIXES:
+        raise OcrRequiredError("photo of a report: read with the vision model")
     if suffix == ".pdf":
         return _extract_pdf_text(p)
     if suffix in {".txt", ".text", ".md", ""}:
@@ -187,8 +192,53 @@ def extract_report_data(text: str) -> dict:
     if not is_available():
         raise ExtractionError("No LLM configured — cannot extract report structure")
 
-    raw = llm_json("report_extract", _SYSTEM_PROMPT, text)
+    return _normalize(llm_json("report_extract", _SYSTEM_PROMPT, text))
 
+
+_VISION_PROMPT = _SYSTEM_PROMPT + """
+You are given photos or scanned pages of the report instead of its text. Read them carefully. Skip any value you cannot read clearly; never guess a digit. Add one more key:
+- raw_text: the report's text as you read it, as plain text (test, value, unit, range per line)."""
+
+
+def page_images(path: str | Path) -> list[str]:
+    """A photo, or the first pages of a scanned PDF, as JPEG data: URLs for the vision model."""
+    from PIL import Image, ImageOps
+
+    p = Path(path)
+    if p.suffix.lower() == ".pdf":
+        import pypdfium2
+
+        pdf = pypdfium2.PdfDocument(str(p))
+        try:
+            pages = [pdf[i].render(scale=2).to_pil() for i in range(min(len(pdf), _MAX_PAGES))]
+        finally:
+            pdf.close()
+    else:
+        try:
+            pages = [ImageOps.exif_transpose(Image.open(p))]  # phone photos carry their rotation
+        except Exception as exc:
+            raise ExtractionError(f"could not open image: {exc}") from exc
+    urls = []
+    for img in pages:
+        img = img.convert("RGB")
+        img.thumbnail((_MAX_SIDE, _MAX_SIDE))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=85)
+        urls.append("data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode())
+    if not urls:
+        raise ExtractionError("the file has no pages")
+    return urls
+
+
+def extract_report_data_from_images(images: list[str]) -> dict:
+    """Same output as extract_report_data, read from photos/scans; adds raw_text."""
+    if not is_available():
+        raise ExtractionError("No LLM configured — cannot read report images")
+    raw = llm_vision_json("report_vision", _VISION_PROMPT, "Extract this report.", images)
+    return {**_normalize(raw), "raw_text": _str_or_none(raw.get("raw_text"))}
+
+
+def _normalize(raw: dict) -> dict:
     report_type = raw.get("report_type")
     if report_type not in _KNOWN_TYPES:
         report_type = "Other"
@@ -345,9 +395,13 @@ def parse_report(report_id: int) -> None:
         db.commit()
 
         try:
-            text = extract_text_from_file(report.path)
+            try:
+                text = extract_text_from_file(report.path)
+                data = extract_report_data(text)
+            except OcrRequiredError:  # a photo or a scan: read the pages with the vision model
+                data = extract_report_data_from_images(page_images(report.path))
+                text = data.get("raw_text") or ""
             report.extracted_text = text
-            data = extract_report_data(text)
             report.report_type = data["report_type"]
             report.test_date = data["test_date"]
             report.extracted_values = data["values"]

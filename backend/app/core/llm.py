@@ -73,10 +73,14 @@ def response_cache(directory: Path, *, prune: bool = False) -> Iterator[Path]:
         _cache_dir = previous
 
 
-def _cache_path(task: str, system: str, user: str, as_json: bool, max_tokens: int | None) -> Path:
-    key = hashlib.sha256(
-        json.dumps([task, system, user, as_json, max_tokens], ensure_ascii=False).encode("utf-8")
-    ).hexdigest()
+def _cache_path(
+    task: str, system: str, user: str, as_json: bool, max_tokens: int | None,
+    images: list[str] | None = None,
+) -> Path:
+    parts: list = [task, system, user, as_json, max_tokens]
+    if images:  # only vision calls add this, so earlier cache keys stay valid
+        parts.append([hashlib.sha256(i.encode()).hexdigest() for i in images])
+    key = hashlib.sha256(json.dumps(parts, ensure_ascii=False).encode("utf-8")).hexdigest()
     return _cache_dir / f"{task}-{key[:20]}.json"  # type: ignore[operator]
 
 
@@ -154,7 +158,7 @@ def _record_usage(rec: dict[str, Any]) -> None:
 
 def _complete(
     provider: str, model: str, system: str, user: str, *, task: str, temperature: float,
-    as_json: bool, max_tokens: int | None = None,
+    as_json: bool, max_tokens: int | None = None, images: list[str] | None = None,
 ) -> Any:
     rec: dict[str, Any] = {
         "task": task, "provider": provider, "model": model, "ok": False,
@@ -167,7 +171,7 @@ def _complete(
             extra["max_tokens"] = max_tokens
         raw = _client(provider).chat.completions.with_raw_response.create(
             model=model,
-            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": _content(user, images)}],
             temperature=temperature,
             **extra,
         )
@@ -200,6 +204,13 @@ def _complete(
         _record_usage(rec)
 
 
+def _content(user: str, images: list[str] | None) -> Any:
+    """The user message: plain text, or text plus images (data: URLs) for vision calls."""
+    if not images:
+        return user
+    return [{"type": "text", "text": user}, *({"type": "image_url", "image_url": {"url": u}} for u in images)]
+
+
 def complete_json(
     provider: str, model: str, system: str, user: str, *, task: str, temperature: float = 0.0
 ) -> dict[str, Any]:
@@ -210,22 +221,23 @@ def complete_json(
 
 def _route(
     task: str, system: str, user: str, temperature: float, as_json: bool,
-    max_tokens: int | None = None,
+    max_tokens: int | None = None, images: list[str] | None = None,
 ) -> Any:
     if _cache_dir is not None:
-        path = _cache_path(task, system, user, as_json, max_tokens)
+        path = _cache_path(task, system, user, as_json, max_tokens, images)
         _cache_used.add(path)
         if path.exists():
             return json.loads(path.read_text(encoding="utf-8"))["result"]
-        result = _route_live(task, system, user, temperature, as_json, max_tokens)
+        result = _route_live(task, system, user, temperature, as_json, max_tokens, images)
         path.write_text(json.dumps({"task": task, "result": result}, ensure_ascii=False, indent=1),
                         encoding="utf-8")
         return result
-    return _route_live(task, system, user, temperature, as_json, max_tokens)
+    return _route_live(task, system, user, temperature, as_json, max_tokens, images)
 
 
 def _route_live(
     task: str, system: str, user: str, temperature: float, as_json: bool, max_tokens: int | None,
+    images: list[str] | None = None,
 ) -> Any:
     s = get_settings()
     model = model_for(task)  # validates the task name even when only the fallback is set
@@ -233,14 +245,15 @@ def _route_live(
     if _primary_ready(s):
         try:
             return _complete(PRIMARY, model, system, user, task=task, temperature=temperature,
-                             as_json=as_json, max_tokens=max_tokens)
+                             as_json=as_json, max_tokens=max_tokens, images=images)
         except Exception as exc:  # noqa: BLE001 - any proxy failure falls back
             last_error = exc
             logger.warning("LiteLLM call for %s failed (%s); trying the Groq fallback", task, exc)
     if s.FALLBACK_API_KEY:
+        fallback = s.FALLBACK_VISION_MODEL if images else s.FALLBACK_MODEL
         try:
-            return _complete(FALLBACK, s.FALLBACK_MODEL, system, user, task=task,
-                             temperature=temperature, as_json=as_json, max_tokens=max_tokens)
+            return _complete(FALLBACK, fallback, system, user, task=task, temperature=temperature,
+                             as_json=as_json, max_tokens=max_tokens, images=images)
         except Exception as exc:  # noqa: BLE001
             last_error = exc
             logger.warning("Groq fallback for %s failed (%s)", task, exc)
@@ -259,6 +272,14 @@ def llm_text(
     """Plain-text completion (same routing, fallback and logging) for prose replies, where a
     JSON wrapper only adds a way to fail (models sometimes answer in prose anyway)."""
     return _route(task, system, user, temperature, as_json=False, max_tokens=max_tokens)
+
+
+def llm_vision_json(
+    task: str, system: str, user: str, images: list[str], *, temperature: float = 0.0
+) -> dict[str, Any]:
+    """JSON-mode completion that also sends images (data: URLs): report photos and scans.
+    Same routing; the Groq fallback uses FALLBACK_VISION_MODEL."""
+    return _route(task, system, user, temperature, as_json=True, images=images)
 
 
 def list_models(provider: str = PRIMARY) -> list[str]:
