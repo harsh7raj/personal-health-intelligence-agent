@@ -20,6 +20,7 @@ from app.core.llm import is_available, llm_json
 from app.db.session import SessionLocal
 from app.models.clinical import VitalReading, VitalSummary
 from app.models.records import Report
+from app.services import lab_values
 from app.services.language_guard import is_diagnostic
 from app.services.report_indexing import index_report
 from app.services.vitals_trend import (
@@ -35,9 +36,14 @@ _MIN_TEXT_CHARS = 20
 
 _VALID_FLAGS = {"normal", "high", "low", "unknown"}
 _KNOWN_TYPES = {
+    "Diabetes Panel",
     "Lipid Panel",
     "CBC",
     "Thyroid Panel",
+    "Kidney Function",
+    "Liver Function",
+    "Vitamin Panel",
+    "Urine Routine",
     "Discharge Summary",
     "Prescription",
     "Other",
@@ -46,8 +52,10 @@ _KNOWN_TYPES = {
 _SYSTEM_PROMPT = """You are a clinical document data-extraction engine. You are given the \
 raw text of a medical report. Extract its structure and return ONLY a JSON object \
 (no prose) with EXACTLY these keys:
-- report_type: one of "Lipid Panel", "CBC", "Thyroid Panel", "Discharge Summary", \
-"Prescription", "Other". Pick the closest; use "Other" if unsure.
+- report_type: one of "Diabetes Panel" (HbA1c / glucose), "Lipid Panel", "CBC", \
+"Thyroid Panel", "Kidney Function" (creatinine, urea, eGFR, electrolytes), "Liver Function", \
+"Vitamin Panel" (vitamin D, B12), "Urine Routine", "Discharge Summary", "Prescription", "Other". \
+Pick the one that covers most of the results; use "Other" if unsure.
 - test_date: the date the tests/sample were taken or the document was issued, as \
 "YYYY-MM-DD". If no date is present, use null. Do not invent a date.
 - values: an array of measured results. Each item is an object with EXACTLY these keys:
@@ -188,7 +196,8 @@ def extract_report_data(text: str) -> dict:
     return {
         "report_type": report_type,
         "test_date": _coerce_date(raw.get("test_date")),
-        "values": _clean_values(raw.get("values")),
+        # Ranges as numbers, flags, test keys and critical values are decided in code (D33).
+        "values": lab_values.enrich(_clean_values(raw.get("values"))),
     }
 
 

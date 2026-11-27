@@ -162,9 +162,11 @@ def record_vital_and_recompute(
 
 def lab_vital_type(test_name: str) -> str:
     """Namespace a lab test_name into a vital_type, e.g. 'LDL Cholesterol' ->
-    'lab_ldl_cholesterol'. Collapses non-alphanumerics so the same test from different
-    reports maps to one series."""
-    slug = re.sub(r"[^a-z0-9]+", "_", (test_name or "").lower()).strip("_")
+    'lab_ldl_cholesterol'. Known tests use their glossary key, so aliases ('LDL-C',
+    'LDL Cholesterol (Direct)') share one series; others fall back to a slug."""
+    from app.data.lab_glossary import key_for
+
+    slug = key_for(test_name) or re.sub(r"[^a-z0-9]+", "_", (test_name or "").lower()).strip("_")
     return f"{LAB_PREFIX}{slug}" if slug else f"{LAB_PREFIX}unknown"
 
 
