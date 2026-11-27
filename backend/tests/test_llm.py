@@ -169,3 +169,13 @@ def test_intake_uses_the_llm_and_degrades_when_it_fails(monkeypatch):
 
     monkeypatch.setattr(intake, "llm_json", boom)
     assert intake.parse_entry("bad headache")["type"] == "note"  # deterministic fallback
+
+
+def test_llm_text_returns_prose_and_falls_back_on_empty(cfg, monkeypatch):
+    primary = _FakeClient(_Raw("Your readings rose [V1]."))
+    _use(monkeypatch, primary, _FakeClient(error=AssertionError("fallback not expected")))
+    assert llm.llm_text("assistant", "sys", "user") == "Your readings rose [V1]."
+    assert "response_format" not in primary.calls[0]  # plain text, no JSON mode
+
+    _use(monkeypatch, _FakeClient(_Raw("   ")), _FakeClient(_Raw("From Groq.")))
+    assert llm.llm_text("assistant", "sys", "user") == "From Groq."

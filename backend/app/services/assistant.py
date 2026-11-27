@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core import clock
-from app.core.llm import is_available, llm_json
+from app.core.llm import is_available, llm_text
 from app.data.symptom_synonyms import SYNONYMS, canonical_symptom
 from app.models.clinical import Medication, Problem
 from app.models.records import ChatMessage
@@ -38,16 +38,18 @@ _MED_WORDS = ("medicine", "medication", "tablet", "dose", "pill", "drug")
 SYSTEM = """You are a personal health record assistant. You OBSERVE and EXPLAIN the user's own \
 records; you never diagnose, never name a cause, never advise treatment or dose changes, and \
 never say medicines are "safe" together.
-Use ONLY the facts in the JSON evidence pack. After every fact you mention, cite its id in square \
-brackets exactly as given, e.g. "on 2026-07-01 [E12]". Never cite an id that is not in the pack, and \
-never invent dates, numbers or events. Quote a doctor's instruction only from "doctor_instructions", \
+Use ONLY the facts in the JSON evidence pack. Cite each fact with its id in square brackets exactly \
+as given. The app shows every [id] to the user as a clickable DATE, so write the id instead of the \
+date: "a similar episode on [E12]", not "on 2026-07-01 [E12]". Mention at most 5 dated facts, the \
+most relevant ones. Never cite an id that is not in the pack, and never invent dates, numbers or \
+events. Quote a doctor's instruction only from "doctor_instructions", \
 and say it is the doctor's ("Dr. Rao said on ...").
 When "recurrence" shows earlier episodes, mention their dates, any shared circumstances (as \
 circumstances, not causes) and a medicine change they all came after, then suggest practical \
 next steps the record supports: checking and logging a reading, and raising the pattern with \
 their doctor. If the pack does not answer a question, say so plainly.
-Write 2 to 6 short sentences in plain language, addressed to the user ("you"). Use dates as written.
-Return ONLY a JSON object, with no text before or after it: {"reply": "<text with [ids]>"}"""
+Write 2 to 6 short sentences in plain language, addressed to the user ("you").
+Return only the reply text, with its [ids]."""
 
 
 def _mentioned_symptoms(db: Session, patient_id: int, text: str) -> list[str]:
@@ -239,8 +241,9 @@ def respond(
     reply, generated_by = None, "fallback"
     if is_available():
         try:
-            res = llm_json("assistant", SYSTEM, json.dumps({"user_message": message, "evidence": pack}))
-            candidate = str(res.get("reply") or "").strip()
+            candidate = llm_text(
+                "assistant", SYSTEM, json.dumps({"user_message": message, "evidence": pack})
+            )
             problem = check_reply(candidate, items)
             if problem:
                 logger.warning("assistant reply rejected (%s); using the fact list", problem)

@@ -111,22 +111,22 @@ def _record_usage(rec: dict[str, Any]) -> None:
         logger.warning("could not write LLM usage log %s", p, exc_info=True)
 
 
-def complete_json(
-    provider: str, model: str, system: str, user: str, *, task: str, temperature: float = 0.0
-) -> dict[str, Any]:
-    """One JSON-mode chat call to one provider and model, with usage logging.
-    Prefer llm_json(); this is the building block (and what the smoke test calls)."""
+def _complete(
+    provider: str, model: str, system: str, user: str, *, task: str, temperature: float,
+    as_json: bool,
+) -> Any:
     rec: dict[str, Any] = {
         "task": task, "provider": provider, "model": model, "ok": False,
         "prompt_tokens": None, "completion_tokens": None, "cost_usd": None, "latency_ms": None,
     }
     started = time.perf_counter()
     try:
+        extra = {"response_format": {"type": "json_object"}} if as_json else {}
         raw = _client(provider).chat.completions.with_raw_response.create(
             model=model,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-            response_format={"type": "json_object"},
             temperature=temperature,
+            **extra,
         )
         resp = raw.parse()
         if resp.usage is not None:
@@ -139,35 +139,59 @@ def complete_json(
                 rec["cost_usd"] = _estimate_cost(
                     model, resp.usage.prompt_tokens or 0, resp.usage.completion_tokens or 0
                 )
-        data = parse_json_object(resp.choices[0].message.content)
+        content = resp.choices[0].message.content or ""
+        if as_json:
+            result: Any = parse_json_object(content)
+        else:
+            result = content.strip()
+            if not result:
+                raise ValueError("empty reply")
         rec["ok"] = True
-        return data
+        return result
     finally:
         rec["latency_ms"] = round((time.perf_counter() - started) * 1000)
         _record_usage(rec)
 
 
-def llm_json(task: str, system: str, user: str, *, temperature: float = 0.0) -> dict[str, Any]:
-    """JSON-mode completion for `task`: LiteLLM first, the Groq fallback on any error.
-    Raises LLMUnavailable if nothing is configured or every provider fails."""
+def complete_json(
+    provider: str, model: str, system: str, user: str, *, task: str, temperature: float = 0.0
+) -> dict[str, Any]:
+    """One JSON-mode chat call to one provider and model, with usage logging.
+    Prefer llm_json(); this is the building block (and what the smoke test calls)."""
+    return _complete(provider, model, system, user, task=task, temperature=temperature, as_json=True)
+
+
+def _route(task: str, system: str, user: str, temperature: float, as_json: bool) -> Any:
     s = get_settings()
     model = model_for(task)  # validates the task name even when only the fallback is set
     last_error: Exception | None = None
     if _primary_ready(s):
         try:
-            return complete_json(PRIMARY, model, system, user, task=task, temperature=temperature)
+            return _complete(PRIMARY, model, system, user, task=task, temperature=temperature,
+                             as_json=as_json)
         except Exception as exc:  # noqa: BLE001 - any proxy failure falls back
             last_error = exc
             logger.warning("LiteLLM call for %s failed (%s); trying the Groq fallback", task, exc)
     if s.FALLBACK_API_KEY:
         try:
-            return complete_json(
-                FALLBACK, s.FALLBACK_MODEL, system, user, task=task, temperature=temperature
-            )
+            return _complete(FALLBACK, s.FALLBACK_MODEL, system, user, task=task,
+                             temperature=temperature, as_json=as_json)
         except Exception as exc:  # noqa: BLE001
             last_error = exc
             logger.warning("Groq fallback for %s failed (%s)", task, exc)
     raise LLMUnavailable(f"no LLM provider could answer task {task!r}") from last_error
+
+
+def llm_json(task: str, system: str, user: str, *, temperature: float = 0.0) -> dict[str, Any]:
+    """JSON-mode completion for `task`: LiteLLM first, the Groq fallback on any error.
+    Raises LLMUnavailable if nothing is configured or every provider fails."""
+    return _route(task, system, user, temperature, as_json=True)
+
+
+def llm_text(task: str, system: str, user: str, *, temperature: float = 0.0) -> str:
+    """Plain-text completion (same routing, fallback and logging) for prose replies, where a
+    JSON wrapper only adds a way to fail (models sometimes answer in prose anyway)."""
+    return _route(task, system, user, temperature, as_json=False)
 
 
 def list_models(provider: str = PRIMARY) -> list[str]:

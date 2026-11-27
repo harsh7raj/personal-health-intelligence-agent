@@ -24,7 +24,7 @@ def _llm(reply_for):
     """Stub LLM: records the evidence pack, replies with reply_for(pack)."""
     def fake(task, system, user, **_kw):
         CAPTURED["task"], CAPTURED["pack"] = task, json.loads(user)["evidence"]
-        return {"reply": reply_for(CAPTURED["pack"])}
+        return reply_for(CAPTURED["pack"])
     return fake
 
 
@@ -32,7 +32,7 @@ def _llm(reply_for):
 def llm_on(monkeypatch):
     CAPTURED.clear()
     monkeypatch.setattr(assistant, "is_available", lambda: True)
-    return lambda reply_for: monkeypatch.setattr(assistant, "llm_json", _llm(reply_for))
+    return lambda reply_for: monkeypatch.setattr(assistant, "llm_text", _llm(reply_for))
 
 
 def _say(client, h, pid, text):
@@ -83,7 +83,7 @@ def test_questions_are_answered_from_history_and_not_saved(client, llm_on):
 )
 def test_red_flags_always_escalate_without_the_llm(client, monkeypatch, text, kind):
     monkeypatch.setattr(assistant, "is_available", lambda: True)
-    monkeypatch.setattr(assistant, "llm_json", lambda *a, **k: pytest.fail("LLM must not run"))
+    monkeypatch.setattr(assistant, "llm_text", lambda *a, **k: pytest.fail("LLM must not run"))
     h, pid = _auth(client, f"chat4{kind}@x.com")
     r = _say(client, h, pid, text)
     assert r["escalation"]["kind"] == kind and r["generated_by"] == "rules"
