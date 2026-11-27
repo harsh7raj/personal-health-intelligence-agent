@@ -32,7 +32,7 @@ def reasoning_node(state: GraphState) -> dict:
         elif etype == "symptom":
             prob = upsert_problem_from_symptom(db, pid, ne)
             db.flush()
-            update_clusters(db, pid, ne)
+            update_clusters(db, pid)
             summary["problem"] = prob.name
 
         refresh_problem_trends(db, pid)
