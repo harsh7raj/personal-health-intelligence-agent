@@ -12,6 +12,8 @@ class MedicationCreate(BaseModel):
     dose_times: list[str] = Field(default_factory=list)
     interval_days: Optional[int] = None
     purpose: Optional[str] = None
+    prescriber: Optional[str] = None  # doctor's name
+    prescriber_specialty: Optional[str] = None
     started_on: Optional[date] = None
     active: bool = True
     attributes: dict[str, Any] = Field(default_factory=dict)
@@ -24,6 +26,8 @@ class MedicationUpdate(BaseModel):
     dose_times: Optional[list[str]] = None
     interval_days: Optional[int] = None
     purpose: Optional[str] = None
+    prescriber: Optional[str] = None  # doctor's name
+    prescriber_specialty: Optional[str] = None
     started_on: Optional[date] = None
     active: Optional[bool] = None
     attributes: Optional[dict[str, Any]] = None
@@ -40,6 +44,8 @@ class MedicationOut(BaseModel):
     dose_times: list[str] = Field(default_factory=list)
     interval_days: int = 1
     purpose: Optional[str] = None
+    prescriber: Optional[str] = None  # doctor's name
+    prescriber_specialty: Optional[str] = None
     started_on: Optional[date] = None
     active: bool
     attributes: dict[str, Any] = Field(default_factory=dict)

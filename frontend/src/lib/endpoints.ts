@@ -33,6 +33,7 @@ export interface VitalSummary {
 export interface Medication {
   id: number; patient_id: number; name: string; dose: string | null
   frequency: string | null; dose_times: string[]; interval_days: number; purpose: string | null
+  prescriber: string | null; prescriber_specialty: string | null
   started_on: string | null; active: boolean
   attributes: Record<string, unknown>; created_at: string; updated_at: string
 }
@@ -222,7 +223,10 @@ export const unmarkDose = (
 ) => api.delete(`/patients/${id}/medications/${medId}/doses`, { data: slot })
 export const createMedication = (
   id: number,
-  m: { name: string; dose?: string; frequency?: string; dose_times?: string[]; purpose?: string },
+  m: {
+    name: string; dose?: string; frequency?: string; dose_times?: string[]; purpose?: string
+    prescriber?: string; prescriber_specialty?: string
+  },
 ) =>
   api.post<Medication>(`/patients/${id}/medications`, m).then((r) => r.data)
 export const deleteMedication = (id: number, mid: number) =>

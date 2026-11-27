@@ -48,6 +48,9 @@ class Medication(TimestampMixin, Base):
     # Free-text grouping ("eye strain", "blood pressure") used to cluster meds in the
     # tracker. Null is rendered as "Other".
     purpose: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # Who prescribed it (e.g. "Dr. Rao", "Endocrinology"), to spot clashes between doctors.
+    prescriber: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    prescriber_specialty: Mapped[str | None] = mapped_column(String(128), nullable=True)
     started_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("true")

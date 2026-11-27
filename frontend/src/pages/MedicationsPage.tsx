@@ -16,6 +16,8 @@ export default function MedicationsPage() {
   const [frequency, setFrequency] = useState("")
   const [purpose, setPurpose] = useState("")
   const [doseTimes, setDoseTimes] = useState("")
+  const [prescriber, setPrescriber] = useState("")
+  const [specialty, setSpecialty] = useState("")
 
   const add = useMutation({
     mutationFn: () => {
@@ -29,6 +31,8 @@ export default function MedicationsPage() {
         frequency: frequency || undefined,
         purpose: purpose || undefined,
         dose_times: times.length ? times : undefined,
+        prescriber: prescriber || undefined,
+        prescriber_specialty: specialty || undefined,
       })
     },
     onSuccess: () => {
@@ -37,6 +41,8 @@ export default function MedicationsPage() {
       setFrequency("")
       setPurpose("")
       setDoseTimes("")
+      setPrescriber("")
+      setSpecialty("")
       qc.invalidateQueries({ queryKey: ["medications", pid] })
       qc.invalidateQueries({ queryKey: ["med-intel", pid] })
       qc.invalidateQueries({ queryKey: ["med-calendar", pid] })
@@ -74,6 +80,10 @@ export default function MedicationsPage() {
           <div className="flex flex-wrap gap-2">
             <Input className="min-w-[140px] flex-1" placeholder="purpose (e.g. eye strain)" value={purpose} onChange={(e) => setPurpose(e.target.value)} />
             <Input className="w-56" placeholder="dose times, e.g. 08:00, 20:00 (optional)" value={doseTimes} onChange={(e) => setDoseTimes(e.target.value)} />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Input className="min-w-[140px] flex-1" placeholder="prescribed by (e.g. Dr. Rao), optional" value={prescriber} onChange={(e) => setPrescriber(e.target.value)} />
+            <Input className="w-56" placeholder="specialty (e.g. endocrinology), optional" value={specialty} onChange={(e) => setSpecialty(e.target.value)} />
             <Button onClick={() => add.mutate()} disabled={add.isPending || !name}>
               Add
             </Button>
@@ -100,6 +110,7 @@ export default function MedicationsPage() {
                     {m.dose && <span className="text-muted-foreground">{m.dose}</span>}
                     {m.frequency && <span className="text-muted-foreground">· {m.frequency}</span>}
                     {m.purpose && <Badge className="border-transparent bg-slate-100 text-slate-600">{m.purpose}</Badge>}
+                    {m.prescriber && <span className="text-muted-foreground">· {m.prescriber}{m.prescriber_specialty ? ` (${m.prescriber_specialty})` : ""}</span>}
                     <Badge className={m.active ? "border-transparent bg-secondary text-secondary-foreground" : "border-transparent bg-slate-100 text-slate-500"}>
                       {m.active ? "active" : "inactive"}
                     </Badge>
