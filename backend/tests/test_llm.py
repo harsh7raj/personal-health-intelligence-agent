@@ -13,8 +13,9 @@ from app.core.config import get_settings
 class _Raw:
     """Mimics openai's with_raw_response result: .headers plus .parse()."""
 
-    def __init__(self, content: str, usage=(10, 5), headers=None):
+    def __init__(self, content: str, usage=(10, 5), headers=None, finish_reason="stop"):
         self._content, self._usage, self.headers = content, usage, headers or {}
+        self._finish = finish_reason
 
     def parse(self):
         usage = (
@@ -23,7 +24,8 @@ class _Raw:
             else None
         )
         message = SimpleNamespace(content=self._content)
-        return SimpleNamespace(usage=usage, choices=[SimpleNamespace(message=message)])
+        return SimpleNamespace(usage=usage, choices=[SimpleNamespace(message=message,
+                                                                     finish_reason=self._finish)])
 
 
 class _FakeClient:
@@ -120,6 +122,8 @@ def test_raises_when_every_provider_fails_or_none_is_set(cfg, monkeypatch):
 def test_json_in_code_fences_or_prose_is_parsed():
     assert llm.parse_json_object('```json\n{"a": 1}\n```') == {"a": 1}
     assert llm.parse_json_object('Sure! {"a": 2} Hope that helps.') == {"a": 2}
+    # Sonnet sometimes appends a second object; the first one is the answer.
+    assert llm.parse_json_object('{"a": 3}\n\n{"note": "x"}') == {"a": 3}
     with pytest.raises(ValueError):
         llm.parse_json_object("[1, 2]")
     with pytest.raises(ValueError):
@@ -180,6 +184,11 @@ def test_llm_text_returns_prose_and_falls_back_on_empty(cfg, monkeypatch):
     _use(monkeypatch, _FakeClient(_Raw("   ")), _FakeClient(_Raw("From Groq.")))
     assert llm.llm_text("assistant", "sys", "user") == "From Groq."
 
+    # A reply cut off at max_tokens is never shown; the fallback answers instead.
+    cut = _Raw("I've logged this. Each time included a skipped meal befor", finish_reason="length")
+    _use(monkeypatch, _FakeClient(cut), _FakeClient(_Raw("From Groq.")))
+    assert llm.llm_text("assistant", "sys", "user") == "From Groq."
+
 
 def test_response_cache_replays_without_calling_a_model(cfg, monkeypatch, tmp_path):
     primary = _FakeClient(_Raw('{"a": 1}'))
@@ -198,3 +207,8 @@ def test_response_cache_replays_without_calling_a_model(cfg, monkeypatch, tmp_pa
         assert llm.is_available() is True
         assert llm.llm_json("intake", "sys", "user") == {"a": 1}
     assert llm.is_available() is False
+
+    # prune=True drops answers the block did not use (e.g. after a prompt change).
+    with llm.response_cache(tmp_path / "cache", prune=True):
+        llm.llm_json("intake", "sys", "user")
+    assert len(list((tmp_path / "cache").glob("*.json"))) == 1

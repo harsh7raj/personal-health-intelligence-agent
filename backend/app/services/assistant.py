@@ -44,8 +44,9 @@ date: "a similar episode on [E12]", not "on 2026-07-01 [E12]". Mention at most 5
 most relevant ones. Never cite an id that is not in the pack, and never invent dates, numbers or \
 events. Quote a doctor's instruction only from "doctor_instructions", \
 and say it is the doctor's ("Dr. Rao said on ...").
-When "recurrence" shows earlier episodes, mention their dates, any shared circumstances (as \
-circumstances, not causes) and a medicine change they all came after, then suggest practical \
+When "recurrence" shows earlier episodes, mention their dates, each shared circumstance it lists \
+(including medicine doses marked taken earlier that day; as circumstances, not causes) and a \
+medicine change they all came after, then suggest practical \
 next steps the record supports: checking and logging a reading, and raising the pattern with \
 their doctor. If the pack does not answer a question, say so plainly.
 Write 2 to 6 short sentences in plain language, addressed to the user ("you").
@@ -247,7 +248,9 @@ def respond(
         try:
             candidate = llm_text(
                 "assistant", SYSTEM, json.dumps({"user_message": message, "evidence": pack}),
-                max_tokens=600,  # a short reply; also bounds latency and cost
+                # The visible reply is short, but the model's hidden reasoning counts against
+                # this too: 600 cut replies off mid-sentence (measured on Harsh's climax).
+                max_tokens=2000,
             )
             problem = check_reply(candidate, items)
             if problem:

@@ -49,18 +49,26 @@ def is_available() -> bool:
 
 # ---- Response cache (demo replays; memory.md D32) ----
 _cache_dir: Path | None = None
+_cache_used: set[Path] = set()
 
 
 @contextmanager
-def response_cache(directory: Path) -> Iterator[Path]:
+def response_cache(directory: Path, *, prune: bool = False) -> Iterator[Path]:
     """Within this block an identical request (task + prompts) returns the stored answer
     instead of calling a model, and new answers are stored. Makes demo re-seeding offline,
-    free and identical. Not for the live app."""
+    free and identical. Not for the live app.
+
+    prune=True: if the block finishes without an error, delete stored answers it did not use
+    (left behind when a prompt changed)."""
     global _cache_dir
     previous, _cache_dir = _cache_dir, Path(directory)
     _cache_dir.mkdir(parents=True, exist_ok=True)
+    _cache_used.clear()
     try:
         yield _cache_dir
+        if prune:
+            for stale in set(_cache_dir.glob("*.json")) - _cache_used:
+                stale.unlink()
     finally:
         _cache_dir = previous
 
@@ -103,10 +111,14 @@ def parse_json_object(content: str | None) -> dict[str, Any]:
     try:
         data = json.loads(text)
     except json.JSONDecodeError:
-        start, end = text.find("{"), text.rfind("}")
-        if start == -1 or end <= start:
+        # Stray prose around it, or a second object after it: take the first complete object.
+        start = text.find("{")
+        if start == -1:
             raise ValueError("reply contained no JSON object") from None
-        data = json.loads(text[start : end + 1])
+        try:
+            data, _ = json.JSONDecoder().raw_decode(text, start)
+        except json.JSONDecodeError:
+            raise ValueError("reply contained no valid JSON object") from None
     if not isinstance(data, dict):
         raise ValueError("reply JSON is not an object")
     return data
@@ -170,7 +182,11 @@ def _complete(
                 rec["cost_usd"] = _estimate_cost(
                     model, resp.usage.prompt_tokens or 0, resp.usage.completion_tokens or 0
                 )
-        content = resp.choices[0].message.content or ""
+        choice = resp.choices[0]
+        content = choice.message.content or ""
+        if getattr(choice, "finish_reason", None) == "length" and not as_json:
+            # Hit max_tokens (reasoning tokens count too): never show half a sentence.
+            raise ValueError("reply cut off at max_tokens")
         if as_json:
             result: Any = parse_json_object(content)
         else:
@@ -198,6 +214,7 @@ def _route(
 ) -> Any:
     if _cache_dir is not None:
         path = _cache_path(task, system, user, as_json, max_tokens)
+        _cache_used.add(path)
         if path.exists():
             return json.loads(path.read_text(encoding="utf-8"))["result"]
         result = _route_live(task, system, user, temperature, as_json, max_tokens)
