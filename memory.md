@@ -25,9 +25,7 @@ Where the two conflict, the resolutions below win (see Architectural Decisions).
 | ORM / migrations | SQLAlchemy 2.x + Alembic |
 | Vector store | ChromaDB |
 | Embeddings | Chroma default local model `all-MiniLM-L6-v2` (sentence-transformers) — no API cost |
-| LLM provider | **Mixed** — Groq for Intake (see D7); Reasoning/Response provider OPEN (OQ7) |
-| — Reasoning/Narrative LLM | OPEN — revisit Phase 5/6 (was assumed `claude-opus-4-8`; not committed) |
-| — Intake parsing LLM | **Groq** (OpenAI-compatible API) `llama-3.3-70b-versatile` — was ~~`claude-haiku-4-5`~~, see D7 |
+| LLM provider | **v2 (D15):** Claude via the owner's LiteLLM proxy — Haiku (`MODEL_FAST`) for routing/parsing, Sonnet (`MODEL_SMART`) for anything a person reads — with a Groq `llama-3.3-70b-versatile` fallback; one entry point `app/core/llm.py`. *(v1: Groq only, D7/D8.)* |
 | Auth | JWT (OAuth2 password flow), `passlib[bcrypt]` |
 | PDF generation | ReportLab (deterministic template; doctor consultation summary) |
 | Frontend | React + Vite + TypeScript |
@@ -35,7 +33,7 @@ Where the two conflict, the resolutions below win (see Architectural Decisions).
 | Charts | Recharts |
 | Frontend data layer | **TanStack Query** (server state) + **axios** (`src/lib/api.ts`, JWT interceptor) + **react-router-dom** |
 | Frontend E2E (dev) | **Playwright** (chromium) — used to verify each phase with screenshots |
-| Local infra | docker-compose (Postgres + Chroma) |
+| Local infra | Postgres 16 via docker-compose or a portable install (D26); Chroma embedded; `uv run python -m scripts.dev` |
 | Pkg mgmt (backend) | `uv` (or pip + venv) |
 
 **Confirm Claude model IDs against the `claude-api` skill before writing any LLM call.**
@@ -158,6 +156,94 @@ Safety-sensitive feature; sources researched and confirmed before building.
 fallback on Groq failure (never 500s); `/intake` route wraps the graph in try/except → clean **502** on
 unexpected failure. Observations + story already had fallbacks. Verified by fault injection.
 
+### v2 decisions (2026-11-27, Phase 0–1; the v2 task list is ROADMAP.md)
+
+### D15 — LLM routing: **LiteLLM first, Groq fallback, one entry point** (supersedes D7/D8)
+Every LLM call goes through `app/core/llm.py::llm_json(task, system, user)`. The task picks a tier from
+`LLM_TASK_TIERS` (config; a partial `.env` override keeps the defaults) and the tier picks the model:
+`MODEL_FAST` (Haiku: router, intake, report_extract), `MODEL_SMART` (Sonnet: story, observations,
+report_summary, drug_reference), `MODEL_VISION` (Phase 4). Calls go to the LiteLLM proxy (`LLM_BASE_URL`,
+`LLM_API_KEY`; 5 s connect timeout, 1 retry, so failover is quick), and on ANY error, including an unparseable
+reply, to Groq `FALLBACK_MODEL` (`llama-3.3-70b-versatile`; key `FALLBACK_API_KEY`, the v1 name `GROQ_API_KEY`
+still works). Replies are parsed leniently (code fences / stray prose). Every call logs task, provider, model,
+tokens, cost (LiteLLM's `x-litellm-response-cost` header, else the `LLM_PRICES` table) and latency to the log and
+`backend/llm_usage.jsonl` (gitignored; never prompt text). Callers check `is_available()` and keep their own
+deterministic fallback. Tests make constructing a real client raise. Model names default to
+`claude-haiku-5-5` / `claude-sonnet-5-5` and must be checked against the proxy (`scripts.llm_smoke_test --list-models`).
+
+### D16 — App clock + IST calendar days
+`app/core/clock.py`: `now()` (aware UTC), `frozen_at(dt)` (process-wide, for the Phase 7 replay), `today()` /
+`to_local()` in `APP_TIMEZONE` (Asia/Kolkata). Store UTC, use IST for calendar days (med schedule, onset words,
+seed). Model `created_at`/`updated_at`/`taken_at` get a Python default `clock.now` (Postgres `now()` stays as the
+server default, so no migration) so a frozen replay writes past timestamps. Auth stays on real time on purpose
+(`core/security.py`, `api/deps.py`, doctor-access expiry), as does the LLM usage log.
+
+### D17 — Backdating: **`entries.occurred_at`; the LLM quotes, code resolves**
+`occurred_at` = when it happened; `created_at` = when it was logged (backfilled = created_at). Intake asks the
+LLM only to quote the onset words (`attributes.onset`); `services/onset.py` resolves them deterministically:
+yesterday (midday), last night (22:00), this morning (08:00), since Monday, N days/hours/weeks ago, "for/since N
+days" (Indian English), 12 March / March 12. Read in IST, stored UTC, never in the future, ignored if > 1 year
+(history, not an episode). Timeline, problems, clusters, memory, PDF and the Chroma `date` metadata all use it.
+
+### D18 — Problems: **canonical names + frequency trend**
+`app/data/symptom_synonyms.py` maps only true equivalents (headaches / head pain → headache; migraine stays
+separate). Intake stores the canonical name (+ `reported_name`); problems match on canonical name or alias and
+remember new variants as aliases; `problems.entries_for_problem` is the one episode lookup. Trend = episodes in
+the last 30 days vs the per-30-day rate in the 30–90 days before; moves only on a difference of ≥ 1 episode a
+month; `None` until 2 episodes. Recomputed for every active problem each pipeline run, so it also comes down;
+problems without symptom episodes (vitals-based, managed) keep their trend.
+
+### D19 — Clusters are **symptom pairs**, counted once per episode
+For each pair of different (canonical) symptoms: the number of separate episodes in which both were logged within
+`CLUSTER_WINDOW_HOURS` (48 h) of each other by `occurred_at`; repeats inside one window count once. Recomputed
+from entries on each symptom log (handles backdating); old multi-symptom rows are replaced.
+
+### D20 — Medication history + prescriber
+`medication_events` (start / stop / dose_change, `event_date` IST day, old → new dose, prescriber, source
+manual | visit_note, note). Create records a start; update records dose change / stop / restart, dated by an
+optional `changed_on`. Deleting a medicine = removing a mistaken entry (cascades its events); stopping is the
+"it ended" path and is recorded. `medications.prescriber` + `prescriber_specialty` for cross-doctor checks (Phase 5).
+
+### D21 — Router before intake: **log / question / both**
+Fast tier when available, else a deterministic heuristic (question marks; wh-words only in question form;
+auxiliaries only before a subject, so "Have been dizzy…" stays a log). Questions are not saved; until the
+Phase 2 assistant they get a fixed holding reply (status `question`). "both" is logged and the asked part returned
+as `user_question`. `/intake/answer` skips the router (clarification answers are always logs).
+
+### D22 — Context tags at intake (fixed vocabulary)
+`skipped_meal, delayed_meal, poor_sleep, stress, missed_dose, alcohol, exercise, travel` (`delayed_meal` added
+for Harsh's "skipping or delaying lunch"). LLM-picked tags are vocabulary-checked and unioned with keyword rules
+(`services/context_tags.py`, tested against false positives such as "running nose" or "blood pressure").
+Stored in `entries.structured.context_tags` (JSONB, no migration) for the Phase 2 recurrence detector.
+
+### D23 — Language guard: narrower "you have" + opt-in doctor attribution
+"you have …" only trips when a condition word follows, never on "you have logged/had/recorded…".
+`is_diagnostic(text, allow_attributed=True)` skips sentences that clearly relay a doctor ("Dr. Rao
+diagnosed…", "According to your doctor…"). Opt-in only, for confirmed visit-note text (Phase 3), never for AI
+text, so a diagnosis can't be laundered through a doctor's name.
+
+### D24 — Missing info resolves; suggestions are dismissable (14-day cooldown, user-decided)
+A BP gap closes once a reading exists (intake or the vitals form) and its "Log today's blood pressure"
+suggestion is auto-dismissed. `POST …/suggested-actions/{id}/dismiss`; a dismissed suggestion is not re-added for
+14 days (`suggested_actions.dismissed_at`).
+
+### D25 — One BP alert per reading
+Both halves of one reading → one alert ("BP 147/92 is above the alert threshold", the worse half sets the level,
+`vital_type = blood_pressure`); its context lists whole readings. A lone half from the vitals form still alerts
+on its own until Phase 6 makes BP one field.
+
+### D26 — Local environment (owner's Windows machine)
+No Docker and no admin rights: Postgres 16 runs from EDB's portable zip at `%LOCALAPPDATA%\phia-postgres`
+(`LOCAL_PG_HOME`); Docker users keep `docker compose up -d`. Chroma runs embedded (`CHROMA_MODE=embedded`,
+compose = Postgres only); stop the API before seeding (single writer). One command: `uv run python -m
+scripts.dev` (Postgres → create DB → migrate → seed if missing → API :8001 + web :5173). Python pinned to 3.11.
+Git is local only and never pushed (the machine's GitHub is a company account); commits use a placeholder author.
+
+### D27 — Choices for things the roadmap didn't cover (user-confirmed 2026-11-27)
+The three existing LLM calls missing from the model plan (observations, report summary, AI drug-reference
+fallback) use the smart tier. `MED_AI_FLAGS_ENABLED` defaults to false until Phase 5. Questions get a holding
+reply until Phase 2 (D21). Dismissed suggestions stay away 14 days (D24).
+
 ---
 
 ## 3. PatientHealthState (Pydantic, in-memory shared state)
@@ -206,6 +292,13 @@ Hybrid pattern (D3): typed columns + `attributes JSONB` where noted. All patient
 >   triggering entry (copied for self-contained audit/debug), **not a second source of truth**;
 >   the real value it adds is `context_bundle` (the top-k + bounded-structured pull). Joins back to
 >   `entries` via `entry_id`. If `entries` and `memory_log.raw_entry` ever disagree, `entries` wins.
+
+**v2 additions (Phase 1):** `entries.occurred_at` (when it happened; D17) ·
+`suggested_actions.dismissed_at` (D24) · `medications.prescriber`, `prescriber_specialty` (D20) ·
+`medication_events` (`id, patient_id, medication_id, medication_name, event_type start|stop|dose_change,
+event_date, old_dose, new_dose, prescriber, source manual|visit_note, note, created_at`; D20). Also in the
+schema since v1 but not listed above: `dose_logs` (adherence) and `drug_interactions` (DDInter reference).
+`entries.structured` now also carries `context_tags` (D22) and `reported_name` (D18).
 
 ## 5. ChromaDB (vector store) — what lives here vs Postgres
 
@@ -275,6 +368,13 @@ Doctor-facing, **gated by token only** (no JWT), **READ-ONLY**, scoped to Respon
 > Token endpoints expose ONLY snapshot/story/PDF. No CRUD, no raw entries, no writes, no other
 > patient's data. Invalid/expired/revoked token → 403. This is the entire doctor surface.
 
+### v2 additions (Phase 1)
+- `POST /patients/{id}/intake` — may now return `status: "question"` (not saved; `reply` is a holding message
+  until Phase 2) or `user_question` alongside a processed log (router, D21).
+- `GET /patients/{id}/suggested-actions` · `POST /patients/{id}/suggested-actions/{aid}/dismiss` (D24)
+- `GET /patients/{id}/medications/events?days&medication_id` — start/stop/dose-change history (D20)
+- Entry outputs (`/entries`, `/symptoms`, timeline detail) include `occurred_at` (D17).
+
 ### System
 - `GET /health` — liveness
 
@@ -294,16 +394,19 @@ Two explicit branch points only: intake-clarify (human-in-loop) and response out
 
 ### Edges
 ```
-START → intake_node
+START → router_node               (v2, D21: log | question | both)
+router_node → question_node       [question: not saved; holding reply until Phase 2]
+router_node → intake_node         [log / both]
+question_node → END
 intake_node → clarify_node        [if critical field missing]
 intake_node → memory_node         [else]
-clarify_node → END                [interrupt; resumes at intake_node on answer]
+clarify_node → END                [interrupt; resumes at intake_node on answer, router skipped]
 memory_node → reasoning_node
 reasoning_node → response_node
 response_node → END
 ```
 
-### LLM usage per node (per D7/D8 — Groq, not Claude)
+### LLM usage per node (v1 notes below; in v2 every call goes through `llm_json(task)`, D15)
 - `intake_node`: **Groq** `INTAKE_MODEL` (parse). `memory_node`: none (embeddings only).
 - `reasoning_node`: **Groq** `REASONING_MODEL` (observations only; trends/rules are pure Python).
 - `response_node`: **Groq** `RESPONSE_MODEL` for the **health story** only. **Snapshot is a deterministic
@@ -313,6 +416,8 @@ response_node → END
 ---
 
 ## 8. Implementation Roadmap (by unit of work, not by session)
+
+> v1 build phases (all done). The **v2** task list lives in `ROADMAP.md`; v2 decisions are D15 onward.
 
 Ordered by dependency. A phase is "done" when it has a runnable/testable artifact.
 
@@ -373,6 +478,36 @@ pytest suite vs `phia_test` (D11), non-diagnostic guard + audit (D12), loose-end
 
 ## 9. Work Log (newest first)
 
+- **2026-11-27** — **v2 Phase 0 + Phase 1 (Claude Code session).** 30 commits on `v2` (one per task);
+  `main` = untouched v1. Decisions D15–D27 above.
+  **Setup:** local git only (never pushed; placeholder author until the owner re-authors); ROADMAP.md moved into
+  the repo; CLAUDE.md holds the standing rules. This Windows machine has no Docker and no admin rights, so:
+  uv via winget, Python pinned to 3.11, Postgres 16.16 from EDB's portable zip at `%LOCALAPPDATA%\phia-postgres`
+  (`LOCAL_PG_HOME`), Chroma embedded. One command: `uv run python -m scripts.dev`.
+  **Baseline:** migrations clean, `alembic check` no drift, app healthy on :8001/:5173. Found and fixed, before
+  feature work: (1) the test suite made live calls (DDInter download thread at every TestClient startup, RxNav in
+  a med test); now stubbed and a real LLM client can't be built in tests; (2) consultation PDF 500'd on Windows
+  (`strftime("%-d")`); (3) the DDInter import crashed on Windows consoles (cp1252 vs a Unicode arrow), so first
+  boot silently fell back to the 13 critical pairs forever; the full import now loads 152,843 pairs (25,792 Major).
+  **Phase 1 done:** embedded Chroma; README + one-command runner; v2 LLM settings + `llm.py` rewrite (all 6 call
+  sites, smoke-test script, usage log); app clock; IST calendar days; backdating (`occurred_at` + onset parser);
+  context tags; canonical symptom names + aliases; frequency-based problem trend; pair clustering; missing-info
+  auto-resolve + suggestion dismiss (14-day cooldown); narrower language guard + opt-in doctor attribution; one BP
+  alert per reading; prescriber per medicine; `medication_events` history; router (log/question/both, holding
+  reply for questions); observations see dated past entries; story fallback `None` fix; vitals labels + padded
+  y-axis; timeline opens at newest; seed times of day. Migrations: `f3501e2ab2f5` (occurred_at), `4c29f0f2bfd0`
+  (dismissed_at), `3e19f634c1f5` (prescriber), `9051870398ab` (medication_events).
+  **Verified:** ruff clean; **177 tests pass** (was 34), all offline; `alembic check` no drift; migration
+  round-trip down/up OK; `npm run build` clean. In the browser (offline, no keys): one "BP 147/92" alert, dismiss
+  button, timeline scrolled to newest, labelled charts with padded axes, a log of "…yesterday…" shows "happened
+  <yesterday>", a question gets the holding reply and is not saved.
+  **Pending keys (`backend/.env`: LLM_BASE_URL, LLM_API_KEY, FALLBACK_API_KEY):** `scripts.llm_smoke_test
+  --list-models --fallback` to confirm model names + JSON mode through the proxy; one real LLM story; a real
+  router/intake check with Haiku.
+  **Known issues for later:** `rxnorm.normalize_ingredient` caches a network-failure fallback as if it were the
+  answer (3 names hit during this import; fix with Phase 5's RxNorm work); the PDF's vital-trends table still
+  prints raw keys (Phase 6 "no raw keys"); the offline intake parser files everything as a `note`; the Response
+  agent is still a pass-through (Phase 2) and the seed's observations are canned (Phase 7 replay).
 - **2026-07-01** — **Part 3: expose report intelligence through the API (for Part-4 frontend).** Committed.
   Reshaped the patient-scoped report endpoints (paths stay `/patients/{id}/reports*` — the whole app is
   ownership-guarded via `OwnedPatient`; the requirement's bare `/reports` was shorthand). **(1) List**
@@ -713,5 +848,6 @@ pytest suite vs `phia_test` (D11), non-diagnostic guard + audit (D12), loose-end
   (`doctor_access` table, default 7-day expiry, revocable). Doctor visits `/shared/{token}/...`,
   gets READ-ONLY access to snapshot/story/PDF only — never CRUD/writes/raw data. No doctor login.
 - **OQ5 — RESOLVED 2026-06-30:** symptom-cluster window = 48h, min 2 distinct (`CLUSTER_WINDOW_HOURS`).
-- **OQ6 (pre Phase 1):** Confirm Claude model IDs + embedding model availability against `claude-api`
+- **OQ6 — v2 status 2026-11-27:** model names come from the owner's LiteLLM proxy (defaults `claude-haiku-5-5` / `claude-sonnet-5-5`, unverified until `scripts.llm_smoke_test --list-models` runs with keys). Original note:
+  Confirm Claude model IDs + embedding model availability against `claude-api`
   skill before first LLM/embedding call.

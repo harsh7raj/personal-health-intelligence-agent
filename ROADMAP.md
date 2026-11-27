@@ -65,10 +65,10 @@ Budget notes are at the end of this file.
 
 ## Phase 0: Setup (~half a day)
 
-- [ ] Create a `v2` branch and keep `main` demo-able.
-- [ ] Get the current app running locally as a baseline: `docker compose up -d`, migrations, seed. Run the backend on port **8001** (Chroma's container already uses 8000) and the frontend on 5173.
+- [x] Create a `v2` branch and keep `main` demo-able. *(Local repo: `main` = untouched v1; never pushed.)*
+- [x] Get the current app running locally as a baseline: `docker compose up -d`, migrations, seed. Run the backend on port **8001** (Chroma's container already uses 8000) and the frontend on 5173. *(On the Windows machine: portable Postgres instead of Docker, see README; found and fixed two Windows-only bugs: PDF date format and the DDInter import.)*
 - [ ] Confirm the LiteLLM proxy URL, your key, and the exact model names it exposes (`GET <proxy-url>/v1/models`).
-- [ ] Write `scripts/llm_smoke_test.py`: one JSON-mode call each to Sonnet and Haiku through the proxy. The code uses `response_format={"type": "json_object"}` everywhere, so confirm this works before building on it.
+- [ ] Write `scripts/llm_smoke_test.py`: one JSON-mode call each to Sonnet and Haiku through the proxy. The code uses `response_format={"type": "json_object"}` everywhere, so confirm this works before building on it. *(Written on top of `llm.py`, which also tolerates fenced/chatty JSON; run it once the keys are in `.env`.)*
 - [ ] Get a free Groq key for Whisper and the fallback.
 - [ ] Optional: get a free openFDA API key for higher rate limits.
 
@@ -77,51 +77,51 @@ Budget notes are at the end of this file.
 ## Phase 1: Fix the foundations (~1–2 days)
 
 ### Setup and infrastructure
-- [ ] Fix the README run steps (uvicorn on `--port 8001`) and add a single start command or script.
-- [ ] Locally, use `CHROMA_MODE=embedded` (already supported in `app/vectorstore/chroma.py`) and drop the Chroma container. If you keep the container, pin its image version instead of `latest`.
-- [ ] Rewrite `app/core/llm.py`: replace `groq_client()` / `groq_json()` with one `llm_json(task, system, user)` that:
+- [x] Fix the README run steps (uvicorn on `--port 8001`) and add a single start command or script. *(`uv run python -m scripts.dev`)*
+- [x] Locally, use `CHROMA_MODE=embedded` (already supported in `app/vectorstore/chroma.py`) and drop the Chroma container. If you keep the container, pin its image version instead of `latest`.
+- [x] Rewrite `app/core/llm.py`: replace `groq_client()` / `groq_json()` with one `llm_json(task, system, user)` that:
   - picks the model for the task from config,
   - calls LiteLLM,
   - falls back to Groq on any error,
   - logs tokens and estimated cost per call.
-- [ ] Update `app/core/config.py` and `.env.example` with `LLM_BASE_URL`, `LLM_API_KEY`, `MODEL_FAST` (Haiku), `MODEL_SMART` (Sonnet), `MODEL_VISION`, `FALLBACK_BASE_URL`, `FALLBACK_API_KEY`, `STT_MODEL`, `OPENFDA_API_KEY`, and `MED_AI_FLAGS_ENABLED`.
-- [ ] Add `app/core/clock.py` with a `now()` that can be overridden, and use it instead of direct `datetime.now(...)` calls. This lets the demo replay simulate past dates (Phase 7).
+- [x] Update `app/core/config.py` and `.env.example` with `LLM_BASE_URL`, `LLM_API_KEY`, `MODEL_FAST` (Haiku), `MODEL_SMART` (Sonnet), `MODEL_VISION`, `FALLBACK_BASE_URL`, `FALLBACK_API_KEY`, `STT_MODEL`, `OPENFDA_API_KEY`, and `MED_AI_FLAGS_ENABLED`.
+- [x] Add `app/core/clock.py` with a `now()` that can be overridden, and use it instead of direct `datetime.now(...)` calls. This lets the demo replay simulate past dates (Phase 7).
   - Files: `services/problems.py`, `clusters.py`, `missing_info.py`, `state_assembler.py`, `vitals_trend.py`, `report_extraction.py`, `pdf_report.py`, `graph/nodes/intake.py`, `memory.py`, `api/routes/vitals.py`.
   - Leave auth on real time: `core/security.py`, `api/deps.py`, and doctor-access token expiry.
 
 ### Data and logic bugs
-- [ ] **Backdating.** Entries only have `created_at`, so "I had a migraine yesterday" is stored as today.
+- [x] **Backdating.** Entries only have `created_at`, so "I had a migraine yesterday" is stored as today.
   - Add `occurred_at` to `entries` (migration; default = `created_at`).
   - Have intake pull out the onset ("yesterday", "since Monday", "last night") and resolve it to a date.
   - Use `occurred_at` for the timeline, clustering, problems, and the Chroma `date` metadata.
-- [ ] **Context tags at intake.** Extract tags like skipped meal, poor sleep, stress, missed dose, alcohol, exercise, and travel as structured fields. The recurrence detector (Phase 2) needs these to find shared circumstances.
-- [ ] **Missing info and suggested actions never clear.** `services/missing_info.py` only inserts.
+- [x] **Context tags at intake.** Extract tags like skipped meal, poor sleep, stress, missed dose, alcohol, exercise, and travel as structured fields. The recurrence detector (Phase 2) needs these to find shared circumstances.
+- [x] **Missing info and suggested actions never clear.** `services/missing_info.py` only inserts.
   - Resolve "No blood pressure reading in 60 days" when a BP reading is logged.
   - Add `POST .../suggested-actions/{id}/dismiss` and a dismiss button.
-- [ ] **Problem matching.** `services/problems.py` matches the exact lowercase string, so "headache", "headaches", and "head pain" become three problems. Have intake output a canonical symptom name (prompt plus a small synonym map) and match on that and the aliases.
-- [ ] **Problem trend.** Right now trend becomes `"increasing"` at 3 total episodes and can never go down. Compute it from frequency instead: last 30 days vs the 30–90 days before, giving increasing / stable / decreasing.
-- [ ] **Clustering.** `services/clusters.py` treats every symptom from the last 48h as one set, so a third symptom creates a brand-new cluster and repeated logs double-count. Instead, count symptom *pairs* that occur within 48h of each other (by `occurred_at`), once per episode.
-- [ ] **Language guard.** In `services/language_guard.py`:
+- [x] **Problem matching.** `services/problems.py` matches the exact lowercase string, so "headache", "headaches", and "head pain" become three problems. Have intake output a canonical symptom name (prompt plus a small synonym map) and match on that and the aliases.
+- [x] **Problem trend.** Right now trend becomes `"increasing"` at 3 total episodes and can never go down. Compute it from frequency instead: last 30 days vs the 30–90 days before, giving increasing / stable / decreasing.
+- [x] **Clustering.** `services/clusters.py` treats every symptom from the last 48h as one set, so a third symptom creates a brand-new cluster and repeated logs double-count. Instead, count symptom *pairs* that occur within 48h of each other (by `occurred_at`), once per episode.
+- [x] **Language guard.** In `services/language_guard.py`:
   - `\byou have\b` drops harmless lines like "you have logged 3 headaches". Narrow it to "you have" followed by a condition word.
   - Exempt clearly attributed doctor statements in visit notes, so "Dr. Rao diagnosed…" isn't dropped.
   - Add tests for both directions.
-- [ ] **One BP alert per reading.** `services/alerts.py` creates separate systolic and diastolic alerts for one reading. Make it a single "BP 147/92 is above the alert threshold" alert.
-- [ ] **Medication history.** The `medications` table only stores `started_on`; dose changes overwrite the old dose. Add a `medication_events` table (start / stop / dose change, date, old → new, prescriber, source: manual or visit note). The assistant and the side-effect check both need it.
-- [ ] **Prescriber per medicine.** Add `prescriber` (doctor name and specialty) to medications so duplicates and clashes between doctors can be detected (Phase 5).
-- [ ] **Timezones.** `services/med_schedule.py` uses naive `date.today()`. Align it with the rest of the app: store in UTC, display in IST.
+- [x] **One BP alert per reading.** `services/alerts.py` creates separate systolic and diastolic alerts for one reading. Make it a single "BP 147/92 is above the alert threshold" alert.
+- [x] **Medication history.** The `medications` table only stores `started_on`; dose changes overwrite the old dose. Add a `medication_events` table (start / stop / dose change, date, old → new, prescriber, source: manual or visit note). The assistant and the side-effect check both need it.
+- [x] **Prescriber per medicine.** Add `prescriber` (doctor name and specialty) to medications so duplicates and clashes between doctors can be detected (Phase 5).
+- [x] **Timezones.** `services/med_schedule.py` uses naive `date.today()`. Align it with the rest of the app: store in UTC, display in IST.
 
 ### Pipeline gaps
-- [ ] **Questions get treated as incomplete logs.** Add a router step before intake that labels each message log / question / both (Haiku). Questions skip saving and go straight to the assistant (Phase 2).
-- [ ] **Observations ignore past entries.** `services/observations.py` only gets aggregates and report chunks. Also pass it the dated past matches the memory node retrieves.
-- [ ] **The Response agent is empty.** `graph/nodes/response.py` is a pass-through. It becomes the assistant reply in Phase 2.
-- [ ] **The demo's observations are fake.** `scripts/seed_demo.py` inserts hardcoded strings. This gets replaced by the Phase 7 replay.
+- [x] **Questions get treated as incomplete logs.** Add a router step before intake that labels each message log / question / both (Haiku). Questions skip saving and go straight to the assistant (Phase 2). *(Until Phase 2, questions get a short holding reply.)*
+- [x] **Observations ignore past entries.** `services/observations.py` only gets aggregates and report chunks. Also pass it the dated past matches the memory node retrieves.
+- [ ] **The Response agent is empty.** `graph/nodes/response.py` is a pass-through. It becomes the assistant reply in Phase 2. *(Phase 2 work.)*
+- [ ] **The demo's observations are fake.** `scripts/seed_demo.py` inserts hardcoded strings. This gets replaced by the Phase 7 replay. *(Phase 7 work.)*
 
 ### Visible bugs (from the report screenshots)
-- [ ] The story fallback prints `None` ("vitamin D deficiency (None, stable)") in `services/story.py::_fallback_story`. Fix it, and make the LLM story actually run.
-- [ ] Vitals chart titles show raw keys ("BLOOD_GLUCOSE") because `pages/VitalsPage.tsx` renders `{vt}`. Add a label map.
-- [ ] Every chart's y-axis starts at 0, so weight looks flat. Use a padded automatic range.
-- [ ] Every seeded entry shows the same time (1:53 AM) because the seed uses "now minus N days". Give entries realistic times of day.
-- [ ] The dashboard timeline shows only the oldest events. Show recent events first, or make it scrollable.
+- [ ] The story fallback prints `None` ("vitamin D deficiency (None, stable)") in `services/story.py::_fallback_story`. Fix it, and make the LLM story actually run. *(`None` fixed; a real LLM story check waits for the keys.)*
+- [x] Vitals chart titles show raw keys ("BLOOD_GLUCOSE") because `pages/VitalsPage.tsx` renders `{vt}`. Add a label map.
+- [x] Every chart's y-axis starts at 0, so weight looks flat. Use a padded automatic range.
+- [x] Every seeded entry shows the same time (1:53 AM) because the seed uses "now minus N days". Give entries realistic times of day.
+- [x] The dashboard timeline shows only the oldest events. Show recent events first, or make it scrollable.
 
 ---
 
