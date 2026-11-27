@@ -2,6 +2,7 @@ import logging
 
 from app.core import clock
 from app.core.llm import is_available, llm_json
+from app.data.symptom_synonyms import canonical_symptom
 from app.db.session import SessionLocal
 from app.graph.state import GraphState
 from app.models.records import Entry
@@ -16,7 +17,8 @@ _VALID_TYPES = {"symptom", "vital", "report", "medication", "note"}
 _SYSTEM_PROMPT = """You are a medical intake parser. Convert the user's free-text health \
 log into a single structured JSON fact. Return ONLY a JSON object with keys:
 - type: one of "symptom","vital","report","medication","note"
-- name: short normalized name (e.g. "headache", "blood pressure", "amlodipine")
+- name: short normalized name: singular, everyday term (e.g. "headache" not "headaches" or \
+"head pain"; "dizziness"; "fatigue"; "blood pressure"; "amlodipine")
 - attributes: object of extracted details (severity, duration, onset, frequency, location, ...). \
 "onset" is the user's OWN WORDS for when it started or happened, only if they said it \
 (e.g. "yesterday", "last night", "since Monday", "2 days ago"); never turn it into a date.
@@ -73,6 +75,13 @@ def intake_node(state: GraphState) -> dict:
             "pending_question": fact.get("clarifying_question")
             or "Could you provide a bit more detail?",
         }
+
+    # One canonical name per symptom so problems/clusters match; keep the user's wording.
+    if fact["type"] == "symptom" and fact.get("name"):
+        canonical = canonical_symptom(fact["name"])
+        if canonical != " ".join(str(fact["name"]).lower().split()):
+            fact["reported_name"] = fact["name"]
+        fact["name"] = canonical
 
     # Circumstances (skipped meal, poor sleep...): vocabulary-checked LLM tags + keyword rules.
     fact["context_tags"] = merge_tags(fact.get("context_tags"), text)

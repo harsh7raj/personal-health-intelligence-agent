@@ -8,11 +8,11 @@ the problem row and surfaced in the header, not as a dated event."""
 
 from typing import Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.clinical import Problem, VitalReading
-from app.models.records import Entry
+from app.services.problems import entries_for_problem
 
 # Symptom-named problems that also have a numeric series worth showing inline.
 # A problem can override/extend this via attributes.vital_types = [...].
@@ -39,16 +39,6 @@ def _norm(s: str | None) -> str:
     return (s or "").strip().lower()
 
 
-def _names_for(problem: Problem) -> set[str]:
-    """The set of entry names that belong to this problem: its own name plus any
-    aliases recorded on the row (handles e.g. problem 'strep throat' ↔ entry
-    'sore throat' where the parsed symptom name differs from the clinical label)."""
-    names = {_norm(problem.name)}
-    for a in (problem.attributes or {}).get("aliases", []) or []:
-        names.add(_norm(a))
-    return {n for n in names if n}
-
-
 def _vital_types_for(problem: Problem) -> list[str]:
     override = (problem.attributes or {}).get("vital_types")
     if isinstance(override, list) and override:
@@ -63,19 +53,9 @@ def build_problem_timeline(
     if problem is None or problem.patient_id != patient_id:
         return None
 
-    names = _names_for(problem)
-    entries: list[Entry] = []
-    if names:
-        entries = list(
-            db.scalars(
-                select(Entry)
-                .where(
-                    Entry.patient_id == patient_id,
-                    func.lower(Entry.structured["name"].astext).in_(names),
-                )
-                .order_by(Entry.occurred_at)
-            ).all()
-        )
+    # Episodes: symptom entries under the problem's canonical name or aliases (e.g.
+    # problem 'strep throat' <-> entries 'sore throat'; 'headaches' <-> 'headache').
+    entries = entries_for_problem(db, patient_id, problem)
 
     vital_types = _vital_types_for(problem)
     readings: list[VitalReading] = []

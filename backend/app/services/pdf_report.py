@@ -26,6 +26,7 @@ from app.models.clinical import Medication, VitalReading
 from app.models.intelligence import Alert
 from app.models.records import Entry
 from app.schemas.health_state import PatientHealthState
+from app.services.problems import episode_entries, names_for
 from app.services.state_assembler import assemble_state
 from app.services.story import build_story
 
@@ -121,17 +122,12 @@ def _reason_for_review(state: PatientHealthState) -> str:
     return "Review prompted by " + ", ".join(seen[:3]) + "."
 
 
-def _problem_pattern(db: Session, patient_id: int, name: str) -> str | None:
+def _problem_pattern(
+    db: Session, patient_id: int, name: str, attributes: dict | None = None
+) -> str | None:
     """Derive episode frequency/spacing from the patient's symptom entries (no fabrication)."""
-    rows = db.scalars(
-        select(Entry).where(Entry.patient_id == patient_id, Entry.type == "symptom")
-    ).all()
-    norm = name.strip().lower()
-    dates = sorted(
-        e.occurred_at
-        for e in rows
-        if e.occurred_at and str((e.structured or {}).get("name", "")).strip().lower() == norm
-    )
+    entries = episode_entries(db, patient_id, names_for(name, attributes))
+    dates = sorted(e.occurred_at for e in entries if e.occurred_at)
     if len(dates) < 2:
         return None
     n = len(dates)
@@ -199,7 +195,7 @@ def build_pdf(db: Session, patient_id: int) -> bytes:
             e.append(Paragraph(
                 f'<b>{p.name}</b> &nbsp;—&nbsp; {p.severity or "unspecified severity"} '
                 f'&nbsp;·&nbsp; <font color="{hexc}"><b>{p.trend or "stable"}</b></font>', _BODY))
-            detail = _problem_pattern(db, patient_id, p.name) or p.frequency
+            detail = _problem_pattern(db, patient_id, p.name, p.attributes) or p.frequency
             if detail:
                 e.append(Paragraph(detail, _ITALIC))
             e.append(Spacer(1, 6))
