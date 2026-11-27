@@ -111,7 +111,7 @@ def load_rows() -> dict[tuple[str, str], dict]:
                 names.add(a)
                 names.add(b)
 
-    print(f"  {len(names)} distinct drug names → resolving to RxNorm ingredients (cached)...")
+    print(f"  {len(names)} distinct drug names -> resolving to RxNorm ingredients (cached)...")
     ingredient = _resolve_to_ingredients(names)
 
     pairs: dict[tuple[str, str], dict] = {}
@@ -209,7 +209,7 @@ def main() -> None:
 
         levels = Counter(r["level"] for r in rows)
         print(f"  loaded. levels: {dict(levels)}")
-    print("Done. Source: DDInter 2.0 (CC BY-NC-SA 4.0) — academic/non-commercial use.")
+    print("Done. Source: DDInter 2.0 (CC BY-NC-SA 4.0) - academic/non-commercial use.")
 
 
 if __name__ == "__main__":

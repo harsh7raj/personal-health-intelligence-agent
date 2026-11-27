@@ -36,7 +36,7 @@ def audit(patient_id: int) -> int:
         for where, text, v in issues:
             print(f"  [{where}] matched {v}\n      {text[:120]}")
         return 1
-    print(f"No non-diagnostic-language violations for patient {patient_id}. ✓")
+    print(f"No non-diagnostic-language violations for patient {patient_id}.")
     return 0
 
 
