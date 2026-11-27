@@ -21,14 +21,15 @@ React + Vite + TypeScript frontend in `frontend/`.
 
 ## How to work
 - Work on the `v2` branch, one phase at a time, following ROADMAP.md's "Suggested order" unless told otherwise.
-  One commit per task, with a clear message. `main` stays the demo-able v1 (as on GitHub); v2 lands via a PR.
+  One commit per phase (owner's call, 2026-11-28, for speed), with a clear message. `main` stays the demo-able v1 (as on GitHub); v2 lands via a PR.
 - **GitHub:** `origin` is the owner's personal repo `harsh7raj/personal-health-intelligence-agent` (public).
   Push only when the owner asks, only to `origin`, and only as `harsh7raj`: a repo-local credential helper
   fetches that account's token from `gh`, so never change it or push with any other GitHub account.
 - Keep the app runnable at the end of every phase. Minimal, focused changes; don't rewrite things that work.
-- After each task, run what's relevant and don't move on with failures:
+- During a phase run only the relevant tests; once per phase run the full set and don't move on with failures:
   - backend (in `backend/`): `uv run ruff check .`, `uv run pytest`, `uv run alembic check`
   - frontend (in `frontend/`): `npm run build`
+- Check live (real models, browser) only the demo-critical flows, once per phase.
 - Add tests for new logic. **Tests never call a real LLM or external API**; stub them (see `backend/tests/conftest.py`).
 - Database changes only through Alembic migrations.
 - Every LLM call goes through `app/core/llm.py`, with the model chosen per task from config.
