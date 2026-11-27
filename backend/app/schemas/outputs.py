@@ -146,6 +146,7 @@ class AlertContextReading(BaseModel):
     unit: Optional[str] = None
     recorded_at: datetime
     breaches: bool = False  # True if this reading on its own crosses the threshold
+    display: Optional[str] = None  # e.g. "147/92" for a whole BP reading
 
 
 class AlertContextOut(BaseModel):

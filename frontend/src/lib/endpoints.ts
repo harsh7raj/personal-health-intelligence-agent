@@ -115,6 +115,7 @@ export interface TimelineDetail {
 export interface AlertContextReading {
   id: number; vital_type: string; value: number; unit: string | null
   recorded_at: string; breaches: boolean
+  display?: string | null // e.g. "147/92" for a whole BP reading
 }
 export interface AlertContext {
   alert: Alert; threshold: string | null; readings: AlertContextReading[]

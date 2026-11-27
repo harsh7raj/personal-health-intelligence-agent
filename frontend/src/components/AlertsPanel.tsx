@@ -80,7 +80,7 @@ function AlertRow({
                   {ctx.data.readings.map((r) => (
                     <li key={r.id} className="flex items-center justify-between gap-3">
                       <span className={cn(r.breaches ? "font-semibold text-foreground" : "text-foreground")}>
-                        {r.vital_type.replace(/_/g, " ")} {Math.round(r.value * 10) / 10}
+                        {r.vital_type.replace(/_/g, " ")} {r.display ?? Math.round(r.value * 10) / 10}
                         {r.unit ? ` ${r.unit}` : ""}
                         {r.breaches && (
                           <span className={cn("ml-2 rounded px-1.5 py-0.5 text-[10px] font-semibold", c.chip)}>

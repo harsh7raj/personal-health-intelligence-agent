@@ -46,10 +46,48 @@ def check_vital_alert(vital_type: str, value: float) -> tuple[str, str, str] | N
     return None
 
 
+BP_VITAL_TYPE = "blood_pressure"  # vital_type of a combined systolic/diastolic alert
+
+
+def check_bp_alert(systolic: float, diastolic: float) -> tuple[str, str, str] | None:
+    """One (kind, severity, message) for a whole BP reading, or None. The more severe
+    half decides the level: "BP 147/92 is above the alert threshold"."""
+    hits = [
+        r
+        for r in (
+            check_vital_alert("bp_systolic", systolic),
+            check_vital_alert("bp_diastolic", diastolic),
+        )
+        if r is not None
+    ]
+    if not hits:
+        return None
+    if any(kind == "critical_bp" for kind, _, _ in hits):
+        return ("critical_bp", "critical", f"BP {systolic:g}/{diastolic:g} is above the critical threshold")
+    return ("high_bp", "high", f"BP {systolic:g}/{diastolic:g} is above the alert threshold")
+
+
 def create_alerts_for_readings(
     db: Session, patient_id: int, readings: list[tuple[str, float, str | None]]
 ) -> list[dict]:
     created: list[dict] = []
+    values = {vt: val for vt, val, _unit in readings}
+    if "bp_systolic" in values and "bp_diastolic" in values:
+        # Both halves of one reading -> one alert, not one per number.
+        res = check_bp_alert(values["bp_systolic"], values["bp_diastolic"])
+        if res is not None:
+            kind, severity, message = res
+            db.add(
+                Alert(
+                    patient_id=patient_id,
+                    kind=kind,
+                    message=message,
+                    severity=severity,
+                    vital_type=BP_VITAL_TYPE,
+                )
+            )
+            created.append({"kind": kind, "vital_type": BP_VITAL_TYPE, "message": message})
+        readings = [r for r in readings if r[0] not in ("bp_systolic", "bp_diastolic")]
     for vt, val, _unit in readings:
         res = check_vital_alert(vt, val)
         if res is None:
