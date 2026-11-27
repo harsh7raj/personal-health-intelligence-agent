@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from app.services.alerts import check_vital_alert
 from app.services.language_guard import filter_observations, is_diagnostic
 from app.services.state_assembler import dedupe_observations
@@ -61,3 +63,10 @@ def test_dedupe_observations_collapses_near_duplicates():
     ]
     kept = dedupe_observations(obs, limit=5)
     assert len(kept) == 2
+
+
+def test_pdf_date_format_is_portable():
+    from app.services.pdf_report import _fmt
+
+    assert _fmt(datetime(2026, 3, 5)) == "Mar 5, 2026"
+    assert _fmt(datetime(2026, 11, 27)) == "Nov 27, 2026"

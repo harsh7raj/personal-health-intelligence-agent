@@ -53,7 +53,8 @@ def _earliest(db: Session, patient_id: int) -> datetime | None:
 
 
 def _fmt(d: datetime) -> str:
-    return d.strftime("%b %-d, %Y")
+    # "%-d" (no zero padding) is Unix-only and raises on Windows; build it portably.
+    return f"{d.strftime('%b')} {d.day}, {d.year}"
 
 
 def _trend_color(trend: str | None):
