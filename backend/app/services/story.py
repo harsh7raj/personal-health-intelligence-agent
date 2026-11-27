@@ -71,11 +71,12 @@ def _has_substantive_data(state: PatientHealthState) -> bool:
 def _fallback_story(state: PatientHealthState) -> str:
     parts: list[str] = []
     if state.active_problems:
-        probs = ", ".join(
-            f"{p.name}" + (f" ({p.frequency}, {p.trend})" if p.trend else "")
-            for p in state.active_problems
-        )
-        parts.append(f"Active problems: {probs}.")
+
+        def describe(p) -> str:
+            details = [d for d in (p.frequency, p.trend) if d]  # never print "None"
+            return f"{p.name} ({', '.join(details)})" if details else p.name
+
+        parts.append(f"Active problems: {', '.join(describe(p) for p in state.active_problems)}.")
     changes = derive_recent_changes(state)
     if changes:
         parts.append("Recent changes: " + "; ".join(changes) + ".")

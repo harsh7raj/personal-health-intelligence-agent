@@ -86,3 +86,22 @@ def test_llm_settings_defaults_and_v1_groq_key_alias(monkeypatch):
     assert Settings(_env_file=None).FALLBACK_API_KEY == "gsk-test"
     monkeypatch.setenv("LLM_TASK_TIERS", '{"story": "fast"}')
     assert Settings(_env_file=None).LLM_TASK_TIERS == {"story": "fast"}
+
+
+def test_story_fallback_never_prints_none():
+    from app.schemas.health_state import PatientHealthState, ProblemView
+    from app.services.story import _fallback_story
+
+    state = PatientHealthState(
+        patient_id=1,
+        active_problems=[
+            ProblemView(name="vitamin D deficiency", frequency=None, trend="stable", status="managed"),
+            ProblemView(name="migraine", frequency="12 episodes", trend="increasing", status="active"),
+            ProblemView(name="fatigue", frequency=None, trend=None, status="active"),
+        ],
+    )
+    story = _fallback_story(state)
+    assert "None" not in story
+    assert "vitamin D deficiency (stable)" in story
+    assert "migraine (12 episodes, increasing)" in story
+    assert "fatigue." in story
