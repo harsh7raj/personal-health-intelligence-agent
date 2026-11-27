@@ -181,8 +181,10 @@ def reports(db: Session, patient_id: int, report_type: str | None = None) -> lis
 
 
 def visit_notes(db: Session, patient_id: int, doctor: str | None = None) -> list[dict]:
-    """Confirmed doctor-visit notes. The visits table arrives in Phase 3."""
-    return []
+    """Confirmed doctor-visit notes, newest first (ids D<visit id>; memory.md D37)."""
+    from app.services.visits import visit_items  # visits imports this module
+
+    return visit_items(db, patient_id, doctor)
 
 
 def search(patient_id: int, text: str, k: int = 5) -> list[dict]:

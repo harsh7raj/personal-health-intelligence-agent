@@ -253,6 +253,9 @@ def _fallback(pack: dict, items: dict[str, dict]) -> str:
         latest = s["summary"]["latest"]
         lines.append(f"Latest {vital_type.replace('_', ' ')}: {latest['value']:g} on {latest['date']} [{latest['id']}] "
                      f"(average {s['summary']['average']:g} across {s['summary']['count']} readings).")
+    for n in (pack.get("doctor_instructions") or [])[:1]:
+        if n.get("doctor_said"):
+            lines.append(f"At your visit on {n['date']} [{n['id']}]: " + " ".join(n["doctor_said"][:3]))
     if pack.get("focused_report"):
         lines.append(report_explainer._fallback(pack["focused_report"]))
     for g in pack.get("glossary", []):

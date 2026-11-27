@@ -79,6 +79,7 @@ class Settings(BaseSettings):
         "brand_generic": "fast",
         "med_label": "smart",
         "med_ai_flag": "smart",
+        "visit_structure": "smart",
     }
     # Fallback when the proxy fails or isn't configured: Groq. GROQ_API_KEY still works (v1 name).
     FALLBACK_BASE_URL: str = "https://api.groq.com/openai/v1"

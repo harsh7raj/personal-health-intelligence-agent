@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
+    visits,
     actions,
     alerts,
     auth,
@@ -96,6 +97,7 @@ def create_app() -> FastAPI:
     app.include_router(actions.router, prefix=settings.API_PREFIX)
     app.include_router(doctor_access.router, prefix=settings.API_PREFIX)
     app.include_router(shared.router, prefix=settings.API_PREFIX)
+    app.include_router(visits.router, prefix=settings.API_PREFIX)
     return app
 
 
