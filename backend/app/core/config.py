@@ -11,6 +11,8 @@ class Settings(BaseSettings):
 
     APP_ENV: str = "development"
     API_PREFIX: str = "/api"
+    # Timestamps are stored in UTC; calendar days ("today", dose dates) are in this zone.
+    APP_TIMEZONE: str = "Asia/Kolkata"
 
     # CORS — comma-separated allowed origins (frontend dev server)
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:5174"

@@ -9,11 +9,12 @@ is never written as a row and is never framed as a missed-dose judgement.
 """
 
 import re
-from datetime import date, timedelta
+from datetime import timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import clock
 from app.data.drug_reference import get_reference
 from app.models.clinical import DoseLog, Medication
 from app.services.drug_reference_ai import ai_reference
@@ -113,7 +114,8 @@ def _timing_for(name: str) -> str | None:
 
 
 def build_med_calendar(db: Session, patient_id: int) -> dict:
-    today = date.today()
+    # Dose days are patient calendar days (IST), not the server's local date or UTC.
+    today = clock.today()
     start = today - timedelta(days=DAYS_BACK)
     end = today + timedelta(days=DAYS_FORWARD)
 
@@ -131,7 +133,10 @@ def build_med_calendar(db: Session, patient_id: int) -> dict:
     # Per-med repeat interval + the anchor day its schedule is phased from, so a med
     # taken "every 3 days" only lands on every third day (not every day).
     interval = {m.id: max(1, m.interval_days or 1) for m in meds}
-    anchor = {m.id: (m.started_on or (m.created_at.date() if m.created_at else today)) for m in meds}
+    anchor = {
+        m.id: m.started_on or (clock.to_local(m.created_at).date() if m.created_at else today)
+        for m in meds
+    }
 
     # Adherence overlay: which (med, date, time) slots are marked taken in this window.
     taken_rows = db.scalars(

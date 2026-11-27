@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
+from app.core import clock
 from app.core.config import get_settings
 from app.core.security import hash_password
 from app.db.session import SessionLocal
@@ -116,8 +117,8 @@ def seed() -> None:
 
         # Adherence history: mark most of the last 6 days' doses taken (a couple skipped) so
         # the tracker shows a real, slightly imperfect record on first load. Use the same
-        # local date basis as the calendar service (date.today()) so history lines up.
-        _today = datetime.now().date()
+        # calendar-day basis as the tracker (clock.today(), IST) so history lines up.
+        _today = clock.today()
         for _med in meds:
             for _back in range(1, 7):
                 _day = _today - timedelta(days=_back)

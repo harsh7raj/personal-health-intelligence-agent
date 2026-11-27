@@ -9,7 +9,11 @@ expiry), and so does the LLM usage log, which tracks real spend.
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone, tzinfo
+from functools import lru_cache
+from zoneinfo import ZoneInfo
+
+from app.core.config import get_settings
 
 _frozen: datetime | None = None
 
@@ -24,6 +28,21 @@ def _as_utc(when: datetime) -> datetime:
 def now() -> datetime:
     """Current time as an aware UTC datetime, or the frozen time inside frozen_at()."""
     return _frozen if _frozen is not None else datetime.now(timezone.utc)
+
+
+@lru_cache
+def local_tz() -> tzinfo:
+    """The patient-facing timezone (APP_TIMEZONE, IST by default). Store UTC, show this."""
+    return ZoneInfo(get_settings().APP_TIMEZONE)
+
+
+def to_local(when: datetime) -> datetime:
+    return _as_utc(when).astimezone(local_tz())
+
+
+def today() -> date:
+    """Today's calendar date in the app timezone, per the app clock."""
+    return to_local(now()).date()
 
 
 @contextmanager
