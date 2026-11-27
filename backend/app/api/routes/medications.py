@@ -1,16 +1,21 @@
-from fastapi import APIRouter, HTTPException, status
+from datetime import timedelta
+
+from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import DbSession, OwnedPatient
-from app.models.clinical import DoseLog, Medication
+from app.core import clock
+from app.models.clinical import DoseLog, Medication, MedicationEvent
 from app.schemas.clinical_io import (
     DoseMark,
     MedicationCreate,
+    MedicationEventOut,
     MedicationOut,
     MedicationUpdate,
 )
 from app.schemas.outputs import MedCalendarOut, MedIntelOut
+from app.services import med_events
 from app.services.med_intel import build_medication_intelligence
 from app.services.med_schedule import (
     build_med_calendar,
@@ -63,6 +68,9 @@ def create_medication(
     data["interval_days"] = data.get("interval_days") or parse_interval_days(data.get("frequency"))
     med = Medication(patient_id=patient.id, **data)
     db.add(med)
+    db.flush()
+    if med.active:
+        med_events.record(db, med, "start", event_date=med.started_on, new_dose=med.dose)
     db.commit()
     db.refresh(med)
     return med
@@ -83,6 +91,25 @@ def medication_calendar(patient: OwnedPatient, db: DbSession) -> dict:
     """Rolling 14-day dose tracker: scheduled doses (from each med's dose_times) grouped
     by purpose, overlaid with the patient's adherence record. Tracking only — no advice."""
     return build_med_calendar(db, patient.id)
+
+
+# Declared BEFORE "/{med_id}" so the literal "events" segment wins.
+@router.get("/{patient_id}/medications/events", response_model=list[MedicationEventOut])
+def medication_events(
+    patient: OwnedPatient,
+    db: DbSession,
+    days: int | None = Query(None, ge=1, le=3650),
+    medication_id: int | None = None,
+) -> list[MedicationEvent]:
+    """Start / stop / dose-change history, newest first. Optional window and medicine."""
+    q = select(MedicationEvent).where(MedicationEvent.patient_id == patient.id)
+    if days is not None:
+        q = q.where(MedicationEvent.event_date >= clock.today() - timedelta(days=days))
+    if medication_id is not None:
+        q = q.where(MedicationEvent.medication_id == medication_id)
+    return list(
+        db.scalars(q.order_by(MedicationEvent.event_date.desc(), MedicationEvent.id.desc())).all()
+    )
 
 
 @router.post(
@@ -158,10 +185,13 @@ def update_medication(
     patient: OwnedPatient, med_id: int, payload: MedicationUpdate, db: DbSession
 ) -> Medication:
     med = _get_med(db, patient.id, med_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    before = med_events.snapshot(med)
+    for field, value in payload.model_dump(exclude_unset=True, exclude={"changed_on"}).items():
         if field == "dose_times" and value is not None:
             value = normalize_dose_times(value)
         setattr(med, field, value)
+    # Keep the history: a dose change / stop / restart becomes a dated event.
+    med_events.record_changes(db, med, before, event_date=payload.changed_on)
     db.commit()
     db.refresh(med)
     return med

@@ -12,6 +12,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     func,
     text,
@@ -58,6 +59,40 @@ class Medication(TimestampMixin, Base):
     attributes: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
     )
+
+
+class MedicationEvent(CreatedAtMixin, Base):
+    """History of a medicine: started, stopped or dose changed (memory.md D20). Rows are
+    never overwritten; the medications row only holds the current state."""
+
+    __tablename__ = "medication_events"
+    __table_args__ = (
+        CheckConstraint(
+            "event_type in ('start','stop','dose_change')", name="ck_med_events_type"
+        ),
+        CheckConstraint("source in ('manual','visit_note')", name="ck_med_events_source"),
+        Index("ix_med_events_patient_date", "patient_id", "event_date"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    patient_id: Mapped[int] = mapped_column(
+        ForeignKey("patients.id", ondelete="CASCADE"), nullable=False
+    )
+    # Deleting a medicine (an entry made by mistake) removes its history; stopping it
+    # is the "it ended" path, and that is recorded as an event.
+    medication_id: Mapped[int] = mapped_column(
+        ForeignKey("medications.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    medication_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    event_date: Mapped[date] = mapped_column(Date, nullable=False)  # patient calendar day
+    old_dose: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    new_dose: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    prescriber: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    source: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="manual", server_default="manual"
+    )
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class DoseLog(CreatedAtMixin, Base):

@@ -6,6 +6,7 @@ from app.models.access import DoctorAccess
 from app.models.clinical import (
     DoseLog,
     Medication,
+    MedicationEvent,
     Problem,
     SymptomCluster,
     VitalReading,
@@ -28,6 +29,7 @@ __all__ = [
     "Patient",
     "MedicalBackground",
     "Medication",
+    "MedicationEvent",
     "DoseLog",
     "Problem",
     "VitalReading",

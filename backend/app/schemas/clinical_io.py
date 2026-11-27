@@ -31,6 +31,8 @@ class MedicationUpdate(BaseModel):
     started_on: Optional[date] = None
     active: Optional[bool] = None
     attributes: Optional[dict[str, Any]] = None
+    # When this change happened (dose change / stop / restart); defaults to today.
+    changed_on: Optional[date] = None
 
 
 class MedicationOut(BaseModel):
@@ -51,6 +53,22 @@ class MedicationOut(BaseModel):
     attributes: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
+
+
+class MedicationEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    medication_id: int
+    medication_name: str
+    event_type: str  # start | stop | dose_change
+    event_date: date
+    old_dose: Optional[str] = None
+    new_dose: Optional[str] = None
+    prescriber: Optional[str] = None
+    source: str  # manual | visit_note
+    note: Optional[str] = None
+    created_at: datetime
 
 
 # --- Dose log (adherence tracking) ---
