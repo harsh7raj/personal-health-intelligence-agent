@@ -5,6 +5,7 @@ import type { Problem, VitalReading, VitalSummary } from "@/lib/endpoints"
 import { Badge, Dialog } from "@/components/ui"
 import { TONE, severityTone, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
+import { vitalLabel } from "@/lib/vitals"
 
 interface Ev {
   t: number
@@ -142,7 +143,7 @@ function DetailModal({ patientId, ev, onClose }: { patientId: number; ev: Ev; on
               {d.vital_readings.map((r) => (
                 <li key={r.id} className="flex items-center justify-between gap-3 text-sm">
                   <span className="text-foreground">
-                    <span className="font-medium">{r.vital_type.replace(/_/g, " ")}</span>{" "}
+                    <span className="font-medium">{vitalLabel(r.vital_type)}</span>{" "}
                     {Math.round(r.value * 10) / 10}
                     {r.unit ? ` ${r.unit}` : ""}
                   </span>

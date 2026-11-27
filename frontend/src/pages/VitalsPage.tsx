@@ -14,6 +14,7 @@ import * as ep from "@/lib/endpoints"
 import type { VitalReading, VitalSummary } from "@/lib/endpoints"
 import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
 import { cn } from "@/lib/utils"
+import { vitalLabel, vitalUnit } from "@/lib/vitals"
 
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
@@ -108,13 +109,16 @@ export default function VitalsPage() {
       )}
 
       {otherTypes.map((vt) => {
-        const data = readings
-          .filter((r) => r.vital_type === vt)
-          .map((r) => ({ t: fmtTime(r.recorded_at), value: r.value }))
+        const series = readings.filter((r) => r.vital_type === vt)
+        const data = series.map((r) => ({ t: fmtTime(r.recorded_at), value: r.value }))
+        const unit = vitalUnit(vt, series[0])
         return (
           <Card key={vt}>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-sm">{vt}</CardTitle>
+              <CardTitle className="text-sm">
+                {vitalLabel(vt, series[0])}
+                {unit && <span className="font-normal normal-case"> · {unit}</span>}
+              </CardTitle>
               <TrendBadge s={summaryFor(vt)} />
             </CardHeader>
             <CardContent>

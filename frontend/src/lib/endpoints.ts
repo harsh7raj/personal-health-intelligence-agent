@@ -25,6 +25,7 @@ export interface Alert {
 export interface VitalReading {
   id: number; patient_id: number; vital_type: string; value: number
   unit: string | null; recorded_at: string; created_at: string
+  attributes?: Record<string, unknown> // lab series carry test_name, reference_range, report_id
 }
 export interface VitalSummary {
   vital_type: string; latest: number | null; recent_avg: number | null
