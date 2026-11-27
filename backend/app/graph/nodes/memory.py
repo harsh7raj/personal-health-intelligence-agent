@@ -1,7 +1,8 @@
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 from sqlalchemy import select
 
+from app.core import clock
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.graph.state import GraphState
@@ -62,7 +63,7 @@ def _report_matches(patient_id: int, text: str) -> list[dict]:
 def memory_node(state: GraphState) -> dict:
     ne = state.new_entry or {}
     entry_id = ne.get("entry_id")
-    text = ne.get("raw_text", "")
+    text = ne.get("raw_text") or state.raw_input or ""  # a question has no entry
     pid = state.patient_id
 
     semantic = _semantic_matches(pid, entry_id, text)
@@ -83,11 +84,11 @@ def memory_node(state: GraphState) -> dict:
                 Medication.patient_id == pid, Medication.active.is_(True)
             )
         ).all()
-        cutoff = datetime.now(timezone.utc) - timedelta(days=settings.RECENT_WINDOW_DAYS)
+        cutoff = clock.now() - timedelta(days=settings.RECENT_WINDOW_DAYS)
         recent = db.scalars(
             select(Entry)
-            .where(Entry.patient_id == pid, Entry.created_at >= cutoff)
-            .order_by(Entry.created_at.desc())
+            .where(Entry.patient_id == pid, Entry.occurred_at >= cutoff)
+            .order_by(Entry.occurred_at.desc())
         ).all()
 
         context_bundle = {
@@ -121,7 +122,7 @@ def memory_node(state: GraphState) -> dict:
                     "id": e.id,
                     "type": e.type,
                     "raw_text": e.raw_text,
-                    "date": e.created_at.isoformat() if e.created_at else None,
+                    "date": e.occurred_at.isoformat() if e.occurred_at else None,
                 }
                 for e in recent
             ],

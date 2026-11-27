@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "A mild headache is the first headache episode logged so far; no earlier similar entries are on record.",
+   "Fatigue has been logged in 2 episodes at an \"exhausted\" severity level, and its trend is stable.",
+   "On the Thyroid Panel from 2025-11-23, TSH was 7.2 µIU/mL, flagged above the 0.4–4.2 reference range, and Free T4 was 0.8 ng/dL, at the lower end of its 0.8–1.8 range. Both values are listed as stable."
+  ]
+ }
+}

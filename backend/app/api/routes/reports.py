@@ -18,12 +18,16 @@ from sqlalchemy.orm import Session
 from app.api.deps import DbSession, OwnedPatient
 from app.core.config import get_settings
 from app.models.records import Report
+from app.api.routes.chat import ChatMessageOut
+from app.models.records import ChatMessage
 from app.schemas.report import (
+    DoctorQuestions,
     FlaggedValue,
     ReportDetail,
     ReportListItem,
     ReportOut,
 )
+from app.services import report_explainer
 from app.services.report_extraction import parse_report
 
 settings = get_settings()
@@ -68,6 +72,7 @@ def _to_list_item(report: Report) -> ReportListItem:
             FlaggedValue.model_validate(v) for v in flagged[:_FLAGGED_PREVIEW_CAP]
         ],
         flagged_count=len(flagged),
+        critical_count=sum(1 for v in report.extracted_values or [] if v.get("critical")),
         parse_error=report.parse_error,
         created_at=report.created_at,
     )
@@ -107,7 +112,7 @@ def upload_report(
     db.add(report)
     db.commit()
     db.refresh(report)
-    # Extraction (text + Groq structured parse) runs AFTER the response is sent, so the
+    # Extraction (text + LLM structured parse) runs AFTER the response is sent, so the
     # upload request never blocks on the LLM call. Status flips uploaded -> parsing ->
     # parsed|failed in the background.
     background.add_task(parse_report, report.id)
@@ -128,7 +133,10 @@ def list_reports(patient: OwnedPatient, db: DbSession) -> list[ReportListItem]:
 @router.get("/{patient_id}/reports/{report_id}", response_model=ReportDetail)
 def get_report(patient: OwnedPatient, report_id: int, db: DbSession) -> ReportDetail:
     report = _get_report(db, patient.id, report_id)
+    rows = report_explainer.value_rows(db, patient.id, report) if report.status == "parsed" else []
     return ReportDetail(
+        values=rows,
+        critical=[{"test_name": r["test_name"], **r["critical"]} for r in rows if r["critical"]],
         id=report.id,
         patient_id=report.patient_id,
         filename=report.filename,
@@ -142,6 +150,50 @@ def get_report(patient: OwnedPatient, report_id: int, db: DbSession) -> ReportDe
         created_at=report.created_at,
         download_url=_download_url(patient.id, report.id),
     )
+
+
+def _parsed(db: Session, patient_id: int, report_id: int) -> Report:
+    report = _get_report(db, patient_id, report_id)
+    if report.status != "parsed":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail="The report hasn't finished processing yet")
+    return report
+
+
+@router.post("/{patient_id}/reports/{report_id}/explain", response_model=ChatMessageOut)
+def explain_report(
+    patient: OwnedPatient, report_id: int, db: DbSession, regenerate: bool = False
+) -> ChatMessage:
+    """The explainer's opening message, kept in the chat thread pinned to this report.
+    Reopening returns the stored one; regenerate=true writes a new one."""
+    report = _parsed(db, patient.id, report_id)
+    if not regenerate:
+        existing = db.scalar(
+            select(ChatMessage).where(
+                ChatMessage.patient_id == patient.id,
+                ChatMessage.meta["report_id"].astext == str(report.id),
+                ChatMessage.meta["kind"].astext == "report_explainer",
+            ).order_by(ChatMessage.id.desc()).limit(1)
+        )
+        if existing is not None:
+            return existing
+    out = report_explainer.explain(db, patient.id, report)
+    msg = ChatMessage(
+        patient_id=patient.id, role="assistant", content=out["reply"], evidence=out["evidence"],
+        meta={"report_id": report.id, "kind": "report_explainer", "critical": out["critical"],
+              "generated_by": out["generated_by"]},
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+    return msg
+
+
+@router.post("/{patient_id}/reports/{report_id}/questions", response_model=DoctorQuestions)
+def doctor_questions(patient: OwnedPatient, report_id: int, db: DbSession) -> dict:
+    """Questions to ask the doctor about this report (saving them to the pre-visit brief
+    arrives with Phase 3)."""
+    return report_explainer.doctor_questions(db, patient.id, _parsed(db, patient.id, report_id))
 
 
 @router.post(

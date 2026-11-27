@@ -1,0 +1,12 @@
+{
+ "task": "brand_generic",
+ "result": {
+  "ingredients": [
+   {
+    "name": "levothyroxine",
+    "strength": null
+   }
+  ],
+  "confidence": "high"
+ }
+}

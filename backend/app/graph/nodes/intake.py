@@ -1,35 +1,46 @@
 import logging
-from datetime import datetime, timezone
 
-from app.core.config import get_settings
-from app.core.llm import groq_json
+from app.core import clock
+from app.core.llm import is_available, llm_json
+from app.data.symptom_synonyms import canonical_symptom
 from app.db.session import SessionLocal
 from app.graph.state import GraphState
 from app.models.records import Entry
+from app.services.context_tags import merge_tags
+from app.services.onset import resolve_onset
 from app.vectorstore.collections import get_entries_collection
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 _VALID_TYPES = {"symptom", "vital", "report", "medication", "note"}
 
 _SYSTEM_PROMPT = """You are a medical intake parser. Convert the user's free-text health \
 log into a single structured JSON fact. Return ONLY a JSON object with keys:
 - type: one of "symptom","vital","report","medication","note"
-- name: short normalized name (e.g. "headache", "blood pressure", "amlodipine")
-- attributes: object of extracted details (severity, duration, onset, frequency, location, ...)
+- name: short normalized name: singular, everyday term (e.g. "headache" not "headaches" or \
+"head pain"; "dizziness"; "fatigue"; "blood pressure"; "amlodipine")
+- attributes: object of extracted details (severity, duration, onset, frequency, location, ...). \
+"onset" is the user's OWN WORDS for when it started or happened, only if they said it \
+(e.g. "yesterday", "last night", "since Monday", "2 days ago"); never turn it into a date.
 - value: number for a SINGLE-number vital (heart rate, weight, glucose, SpO2, temperature), else null
 - unit: string unit for that single value if present, else null
-- complete: boolean — true if clear enough to record; false if a key field is missing
+- complete: boolean — false ONLY when you cannot tell what is being logged (no symptom, reading, \
+medicine or event named) or a reading has no number. A named symptom without severity, duration or \
+time is complete: record it as given.
 For BLOOD PRESSURE specifically: ALWAYS put both numbers in attributes as "systolic" and \
 "diastolic" (as numbers) and leave value and unit null — never collapse BP into the value field.
 - clarifying_question: one short question to ask if complete is false, else null
+- context_tags: circumstances the user STATED, only from this list: "skipped_meal", \
+"delayed_meal", "poor_sleep", "stress", "missed_dose", "alcohol", "exercise", "travel". \
+[] if none. Never guess one they did not mention.
+- other_symptoms: for a symptom log, every OTHER symptom named in the same message as short \
+normalized names (e.g. ["sweating", "dizziness", "palpitations"]); [] if none.
 Normalize lay terms (e.g. "tummy ache" -> "abdominal pain"). Record only what the user states; \
 NEVER infer or name a diagnosis, disease, cause, or treatment — capture the raw symptom/vital/note only."""
 
 
 def _fallback_parse(text: str) -> dict:
-    # Used only when GROQ_API_KEY is unset (offline plumbing tests).
+    # Used when no LLM is configured or reachable (offline runs and tests).
     return {
         "type": "note",
         "name": (text.strip()[:64] or "note"),
@@ -42,11 +53,11 @@ def _fallback_parse(text: str) -> dict:
 
 
 def parse_entry(text: str) -> dict:
-    if not settings.GROQ_API_KEY:
-        logger.warning("GROQ_API_KEY not set — using deterministic fallback parser")
+    if not is_available():
+        logger.warning("No LLM configured; using the deterministic fallback parser")
         return _fallback_parse(text)
     try:
-        fact = groq_json(_SYSTEM_PROMPT, text)
+        fact = llm_json("intake", _SYSTEM_PROMPT, text)
     except Exception:
         logger.warning("intake LLM parse failed — degrading to fallback parser", exc_info=True)
         return _fallback_parse(text)
@@ -58,16 +69,44 @@ def parse_entry(text: str) -> dict:
     return fact
 
 
+def should_clarify(fact: dict, text: str) -> bool:
+    """Ask a clarifying question only for an incomplete log, and never for a red flag: that goes
+    straight on to the escalation (found by the Phase 8 eval)."""
+    from app.services.red_flags import check as red_flag
+
+    return not fact.get("complete", True) and not red_flag(text)
+
+
 def intake_node(state: GraphState) -> dict:
     text = state.raw_input or ""
     fact = parse_entry(text)
 
-    if not fact.get("complete", True):
+    if should_clarify(fact, text):
         return {
             "needs_clarification": True,
             "pending_question": fact.get("clarifying_question")
             or "Could you provide a bit more detail?",
         }
+
+    # One canonical name per symptom so problems/clusters match; keep the user's wording.
+    if fact["type"] == "symptom" and fact.get("name"):
+        canonical = canonical_symptom(fact["name"])
+        if canonical != " ".join(str(fact["name"]).lower().split()):
+            fact["reported_name"] = fact["name"]
+        fact["name"] = canonical
+        others = fact.get("other_symptoms")
+        fact["other_symptoms"] = sorted(
+            {canonical_symptom(o) for o in others if isinstance(o, str) and o.strip()} - {canonical}
+        ) if isinstance(others, list) else []
+
+    # Circumstances (skipped meal, poor sleep...): vocabulary-checked LLM tags + keyword rules.
+    fact["context_tags"] = merge_tags(fact.get("context_tags"), text)
+
+    # When it happened: the LLM quotes the onset words, code resolves them (D17).
+    onset = (fact.get("attributes") or {}).get("onset")
+    occurred = (
+        resolve_onset(text, phrase=onset if isinstance(onset, str) else None) or clock.now()
+    )
 
     # Persist the entry (append-only source of truth), then embed it.
     with SessionLocal() as db:
@@ -77,12 +116,12 @@ def intake_node(state: GraphState) -> dict:
             raw_text=text,
             structured=fact,
             source="intake",
+            occurred_at=occurred,
         )
         db.add(entry)
         db.commit()
         db.refresh(entry)
         entry_id = entry.id
-        created = entry.created_at
 
     get_entries_collection().add(
         documents=[text],
@@ -92,7 +131,7 @@ def intake_node(state: GraphState) -> dict:
                 "patient_id": state.patient_id,
                 "entry_id": entry_id,
                 "type": fact["type"],
-                "date": (created or datetime.now(timezone.utc)).isoformat(),
+                "date": occurred.isoformat(),
             }
         ],
     )
@@ -104,6 +143,7 @@ def intake_node(state: GraphState) -> dict:
             "name": fact.get("name"),
             "structured": fact,
             "raw_text": text,
+            "occurred_at": occurred.isoformat(),
         },
         "needs_clarification": False,
         "pending_question": None,

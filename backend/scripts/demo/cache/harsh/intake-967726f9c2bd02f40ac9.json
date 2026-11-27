@@ -1,0 +1,20 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "symptom",
+  "name": "fatigue",
+  "attributes": {
+   "onset": "this morning",
+   "sleep_quality": "poor",
+   "sleep_hours": "about 5"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [
+   "poor_sleep"
+  ],
+  "other_symptoms": []
+ }
+}

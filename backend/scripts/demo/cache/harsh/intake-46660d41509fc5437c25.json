@@ -1,0 +1,18 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "symptom",
+  "name": "headache",
+  "attributes": {
+   "severity": "mild",
+   "onset": "in the evening",
+   "note": "too much screen time"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [],
+  "other_symptoms": []
+ }
+}

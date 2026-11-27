@@ -4,7 +4,11 @@ from app.services.alerts import create_alerts_for_readings
 from app.services.clusters import update_clusters
 from app.services.missing_info import check_missing_info, suggested_actions
 from app.services.observations import generate_observations
-from app.services.problems import auto_resolve, upsert_problem_from_symptom
+from app.services.problems import (
+    auto_resolve,
+    refresh_problem_trends,
+    upsert_problem_from_symptom,
+)
 from app.services.vitals_trend import record_vital_and_recompute
 
 
@@ -28,17 +32,22 @@ def reasoning_node(state: GraphState) -> dict:
         elif etype == "symptom":
             prob = upsert_problem_from_symptom(db, pid, ne)
             db.flush()
-            update_clusters(db, pid, ne)
+            update_clusters(db, pid)
             summary["problem"] = prob.name
 
+        refresh_problem_trends(db, pid)
         summary["resolved"] = auto_resolve(db, pid)
         missing = check_missing_info(db, pid)
         summary["missing_info"] = missing
         summary["suggested_actions"] = suggested_actions(db, pid, alerts, missing)
         db.commit()
 
-        # Observations read the just-updated state, then persist.
-        summary["observations"] = generate_observations(db, pid, ne, state.context_bundle)
-        db.commit()
+        # Observations read the just-updated state, then persist. In chat they run after the
+        # reply is sent (memory.md D31), so the user isn't waiting on a second Sonnet call.
+        if state.defer_observations:
+            summary["observations"] = []
+        else:
+            summary["observations"] = generate_observations(db, pid, ne, state.context_bundle)
+            db.commit()
 
     return {"reasoning_summary": summary}

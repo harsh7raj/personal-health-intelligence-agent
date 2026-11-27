@@ -93,6 +93,7 @@ class TimelineEntryDetail(BaseModel):
     structured: dict[str, Any] = Field(default_factory=dict)
     source: Optional[str] = None
     created_at: datetime
+    occurred_at: datetime
 
 
 class TimelineVitalDetail(BaseModel):
@@ -145,6 +146,7 @@ class AlertContextReading(BaseModel):
     unit: Optional[str] = None
     recorded_at: datetime
     breaches: bool = False  # True if this reading on its own crosses the threshold
+    display: Optional[str] = None  # e.g. "147/92" for a whole BP reading
 
 
 class AlertContextOut(BaseModel):
@@ -263,3 +265,13 @@ class MedCalendarOut(BaseModel):
     groups: list[CalendarGroup]
     medication_count: int
     disclaimer: str
+
+
+class SuggestedActionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    text: str
+    created_at: datetime
+    dismissed: bool
+    dismissed_at: Optional[datetime] = None

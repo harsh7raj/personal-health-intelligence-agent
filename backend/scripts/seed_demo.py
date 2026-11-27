@@ -12,10 +12,11 @@ factual/non-diagnostic and pass the language guard.
 Run:  uv run python -m scripts.seed_demo
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 
 from sqlalchemy import select
 
+from app.core import clock
 from app.core.config import get_settings
 from app.core.security import hash_password
 from app.db.session import SessionLocal
@@ -36,12 +37,15 @@ DEMO_EMAIL = "demo@phia.health"
 DEMO_PASSWORD = "demo-pass-123"
 
 
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
+def _at(days_ago: int, hour: int = 12, minute: int = 0) -> datetime:
+    """A realistic moment: that IST calendar day at hour:minute, stored as UTC. (Using
+    "now minus N days" gave every seeded row the same time of day.)"""
+    day = clock.today() - timedelta(days=days_ago)
+    return datetime.combine(day, time(hour, minute), tzinfo=clock.local_tz()).astimezone(timezone.utc)
 
 
-def _days_ago(n: int) -> datetime:
-    return _now() - timedelta(days=n)
+# Plausible times of day for symptom logs, cycled through deterministically.
+_LOG_TIMES = [(9, 15), (21, 40), (14, 5), (19, 30), (7, 50), (16, 20), (22, 10), (12, 45)]
 
 
 def _wipe_existing(db) -> None:
@@ -116,8 +120,8 @@ def seed() -> None:
 
         # Adherence history: mark most of the last 6 days' doses taken (a couple skipped) so
         # the tracker shows a real, slightly imperfect record on first load. Use the same
-        # local date basis as the calendar service (date.today()) so history lines up.
-        _today = datetime.now().date()
+        # calendar-day basis as the tracker (clock.today(), IST) so history lines up.
+        _today = clock.today()
         for _med in meds:
             for _back in range(1, 7):
                 _day = _today - timedelta(days=_back)
@@ -147,17 +151,17 @@ def seed() -> None:
         ]
         bp_all = sorted(older + recent_tail, key=lambda x: -x[0])  # oldest → newest
         recent_sys = recent_dia = None
-        for d, sv, dv in bp_all:
-            ts = _days_ago(d)
+        for i, (d, sv, dv) in enumerate(bp_all):
+            ts = _at(d, 7 + i % 2, (17 * i) % 60)  # morning readings, 07:00-08:59
             db.add(VitalReading(patient_id=pid, vital_type="bp_systolic", value=sv, unit="mmHg", recorded_at=ts))
             db.add(VitalReading(patient_id=pid, vital_type="bp_diastolic", value=dv, unit="mmHg", recorded_at=ts))
             recent_sys, recent_dia = sv, dv  # last loop = most recent (oldest→newest order)
         # Weight monthly, drifting 72 → 70.
         for d, w in _ramp(list(range(15, 365, 33)), 72, 70, [0, 1, -1, 0]):
-            db.add(VitalReading(patient_id=pid, vital_type="weight", value=w, unit="kg", recorded_at=_days_ago(d)))
+            db.add(VitalReading(patient_id=pid, vital_type="weight", value=w, unit="kg", recorded_at=_at(d, 7, 10)))
         # Blood glucose monthly, the emerging thread: 92 → 118 (elevated, below the 200 alert line).
         for d, g in _ramp(list(range(10, 365, 33)), 92, 118, [1, -2, 1, 0, 2, -1]):
-            db.add(VitalReading(patient_id=pid, vital_type="blood_glucose", value=g, unit="mg/dL", recorded_at=_days_ago(d)))
+            db.add(VitalReading(patient_id=pid, vital_type="blood_glucose", value=g, unit="mg/dL", recorded_at=_at(d, 7, 40)))
         db.flush()
         for vt in ("bp_systolic", "bp_diastolic", "weight", "blood_glucose"):
             recompute_summary(db, pid, vt)
@@ -194,11 +198,12 @@ def seed() -> None:
             (7, "ongoing fatigue, run down", sym("fatigue")),
         ]
         embed_docs, embed_ids, embed_meta = [], [], []
-        for days, text, struct in entries:
-            ts = _days_ago(days)
+        for i, (days, text, struct) in enumerate(entries):
+            ts = _at(days, *_LOG_TIMES[i % len(_LOG_TIMES)])
             fact = {"type": "symptom", **struct, "complete": True}
             e = Entry(patient_id=pid, type="symptom", raw_text=text, structured=fact, source="seed")
             e.created_at = ts
+            e.occurred_at = ts
             db.add(e)
             db.flush()
             embed_docs.append(text)
@@ -211,42 +216,42 @@ def seed() -> None:
             Problem(
                 patient_id=pid, name="migraine", status="active", severity="moderate",
                 frequency=f"{migraine_count} episodes", trend="increasing",
-                first_seen=_days_ago(340), last_seen=_days_ago(9),
+                first_seen=_at(340), last_seen=_at(9),
                 attributes={"episode_count": migraine_count, "aliases": ["migraine headache"]},
             )
         )
         db.add(
             Problem(
                 patient_id=pid, name="strep throat", status="resolved", severity="moderate",
-                frequency="1 episode", first_seen=_days_ago(350), last_seen=_days_ago(345),
-                resolved_at=_days_ago(320), attributes={"episode_count": 1, "aliases": ["sore throat"]},
+                frequency="1 episode", first_seen=_at(350), last_seen=_at(345),
+                resolved_at=_at(320), attributes={"episode_count": 1, "aliases": ["sore throat"]},
             )
         )
         db.add(
             Problem(
                 patient_id=pid, name="lower back pain", status="resolved", severity="moderate",
-                frequency="3 episodes", first_seen=_days_ago(210), last_seen=_days_ago(178),
-                resolved_at=_days_ago(150), attributes={"episode_count": 3, "aliases": ["back pain"]},
+                frequency="3 episodes", first_seen=_at(210), last_seen=_at(178),
+                resolved_at=_at(150), attributes={"episode_count": 3, "aliases": ["back pain"]},
             )
         )
         db.add(
             Problem(
                 patient_id=pid, name="vitamin D deficiency", status="managed", trend="stable",
-                first_seen=_days_ago(360), last_seen=_days_ago(30), attributes={},
+                first_seen=_at(360), last_seen=_at(30), attributes={},
             )
         )
         # Emerging thread: evidenced by its glucose series (vital_types), no symptom entries.
         db.add(
             Problem(
                 patient_id=pid, name="elevated blood glucose", status="active", trend="rising",
-                frequency="ongoing", first_seen=_days_ago(340), last_seen=_days_ago(10),
+                frequency="ongoing", first_seen=_at(340), last_seen=_at(10),
                 attributes={"vital_types": ["blood_glucose"]},
             )
         )
 
         # --- Cluster: migraine + fatigue (co-occurred ~3 times) ---
         db.add(
-            SymptomCluster(patient_id=pid, symptoms=["fatigue", "migraine"], occurrences=3, last_seen=_days_ago(7))
+            SymptomCluster(patient_id=pid, symptoms=["fatigue", "migraine"], occurrences=3, last_seen=_at(7))
         )
 
         db.commit()

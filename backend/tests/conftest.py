@@ -4,7 +4,9 @@ import os
 TEST_DB_URL = "postgresql+psycopg://phia:phia@localhost:5432/phia_test"
 ADMIN_URL = "postgresql+psycopg://phia:phia@localhost:5432/postgres"
 os.environ["DATABASE_URL"] = TEST_DB_URL
-os.environ["GROQ_API_KEY"] = ""  # offline: intake fallback / story fallback / no obs LLM
+# Offline: no LLM provider configured (env beats backend/.env) and no usage-log file.
+for _var in ("LLM_BASE_URL", "LLM_API_KEY", "FALLBACK_API_KEY", "GROQ_API_KEY", "LLM_USAGE_LOG"):
+    os.environ[_var] = ""
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -55,6 +57,28 @@ def _stub_parse(text: str) -> dict:
             "value": None, "unit": None, "complete": True, "clarifying_question": None}
 
 
+class _BlockedLLMClient:
+    """Any attempt to build a real LLM client in tests fails loudly (no network)."""
+
+    def __init__(self, *_a, **_kw):
+        raise RuntimeError("Tests must not call a real LLM; stub it instead.")
+
+
+@pytest.fixture(autouse=True)
+def _no_external_calls(monkeypatch):
+    """Keep the whole suite offline: no LLM, no RxNav, no DDInter download."""
+    import app.core.llm as llm
+
+    client_factory = llm._client  # tests may swap llm._client; clear the real cache
+    client_factory.cache_clear()
+    monkeypatch.setattr(llm, "OpenAI", _BlockedLLMClient)
+    # RxNav, RxClass and openFDA: every reference API call goes through http.get_json.
+    monkeypatch.setattr("app.services.rxnorm._get_json", lambda _url: None)
+    monkeypatch.setattr("app.services.http.get_json", lambda *_a, **_k: None)
+    yield
+    client_factory.cache_clear()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _setup_test_db():
     admin = create_engine(ADMIN_URL, isolation_level="AUTOCOMMIT")
@@ -101,10 +125,15 @@ def client(monkeypatch):
     monkeypatch.setattr(
         "app.graph.nodes.memory.get_reports_collection", lambda: fake, raising=False
     )
+    monkeypatch.setattr("app.services.retrieval.get_entries_collection", lambda: fake)
+    monkeypatch.setattr("app.services.retrieval.get_reports_collection", lambda: fake)
     monkeypatch.setattr("app.graph.nodes.intake.parse_entry", _stub_parse)
 
     import app.main as main_mod
+    import scripts.import_ddinter as ddinter
 
     monkeypatch.setattr(main_mod, "bootstrap_collections", lambda: [])
+    # App startup would otherwise download DDInter (+ RxNav lookups) into phia_test.
+    monkeypatch.setattr(ddinter, "bootstrap_if_empty", lambda: 0)
     with TestClient(main_mod.app) as c:
         yield c

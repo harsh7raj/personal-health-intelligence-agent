@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Headache episodes are trending upward, with 3 logged, all mild. Shakiness has been logged 2 times and is stable.",
+   "Blood glucose readings are rising (latest 128, about 23% higher than before), while lab panels show HbA1c falling from 8.4% on 2026-04-12 to 7.6% on 2026-07-11, and fasting glucose from 171 to 152 mg/dL. Both remain above the reference range.",
+   "Meal-related notes were logged on 2026-07-31 (skipped lunch) and 2026-08-30 (missed lunch). On 2026-07-31 a note also mentioned feeling shaky and sweaty around 3pm, and that a biscuit helped."
+  ]
+ }
+}

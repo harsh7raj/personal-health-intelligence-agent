@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Shakiness has now been logged 3 times; earlier similar entries on 2026-07-31 (shaky and sweaty around 3pm, a bit dizzy, heart racing, a biscuit helped) and 2026-08-30 (shaky and sweaty in the afternoon, dizzy, heart pounding, settled after some juice) both describe afternoon episodes.",
+   "On the Diabetes Panel from 2026-07-11, HbA1c was 7.6% and fasting plasma glucose was 152 mg/dL, both flagged above reference range, though both are lower than the 2026-04-12 panel (8.4% and 171 mg/dL).",
+   "Logged blood glucose has a falling trend (latest 125, about 11% lower than earlier readings), alongside the downward trend in lab report glucose values. Discussing these patterns with your doctor may be worthwhile."
+  ]
+ }
+}

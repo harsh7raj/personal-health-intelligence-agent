@@ -1,0 +1,19 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "note",
+  "name": "sleep",
+  "attributes": {
+   "duration": "5 hours",
+   "context": "release week"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [
+   "poor_sleep"
+  ],
+  "other_symptoms": []
+ }
+}

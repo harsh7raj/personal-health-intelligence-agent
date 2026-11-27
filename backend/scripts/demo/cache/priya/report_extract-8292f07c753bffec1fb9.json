@@ -1,0 +1,23 @@
+{
+ "task": "report_extract",
+ "result": {
+  "report_type": "Thyroid Panel",
+  "test_date": "2025-11-23",
+  "values": [
+   {
+    "test_name": "TSH (Thyroid stimulating hormone)",
+    "value": "7.2",
+    "unit": "µIU/mL",
+    "reference_range": "0.4 - 4.2",
+    "flag": "high"
+   },
+   {
+    "test_name": "Free T4",
+    "value": "0.8",
+    "unit": "ng/dL",
+    "reference_range": "0.8 - 1.8",
+    "flag": "normal"
+   }
+  ]
+ }
+}

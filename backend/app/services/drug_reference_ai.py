@@ -1,4 +1,4 @@
-"""Groq fallback for per-drug REFERENCE info only (Part 2).
+"""LLM fallback for per-drug REFERENCE info only (Part 2).
 
 Used ONLY when the curated MedlinePlus table has no entry for a drug. This is
 general, non-diagnostic reference content — the same risk tier as the system's
@@ -12,12 +12,10 @@ solely from the local DDInter table; no LLM verdict about interactions, ever.
 
 import logging
 
-from app.core.config import get_settings
-from app.core.llm import groq_json
+from app.core.llm import is_available, llm_json
 from app.services.language_guard import is_diagnostic
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 AI_SOURCE = "AI-generated general reference — verify with a pharmacist"
 
@@ -38,19 +36,19 @@ _cache: dict[str, dict | None] = {}
 
 
 def ai_reference(name: str) -> dict | None:
-    """General reference info for `name` via Groq, or None if unavailable/unclean.
+    """General reference info for `name` via the LLM, or None if unavailable/unclean.
     Result shape matches the curated table, with provenance='ai'."""
     key = (name or "").strip().lower()
     if not key:
         return None
     if key in _cache:
         return _cache[key]
-    if not settings.GROQ_API_KEY:
+    if not is_available():
         _cache[key] = None
         return None
 
     try:
-        res = groq_json(_SYSTEM, f"Medication: {name}", model=settings.REASONING_MODEL)
+        res = llm_json("drug_reference", _SYSTEM, f"Medication: {name}")
     except Exception:
         # Transient failure — do NOT cache, so a later view can retry.
         logger.warning("AI drug reference generation failed for %s", name, exc_info=True)

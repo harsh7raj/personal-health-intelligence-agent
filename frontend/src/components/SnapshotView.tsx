@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 
 export function trendClass(trend: string | null): string {
   if (trend === "rising" || trend === "increasing") return "border-amber-400 text-amber-600"
-  if (trend === "falling") return "border-blue-400 text-blue-600"
+  if (trend === "falling" || trend === "decreasing") return "border-blue-400 text-blue-600"
   return "border-muted-foreground/30 text-muted-foreground"
 }
 

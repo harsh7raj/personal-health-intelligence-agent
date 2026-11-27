@@ -1,0 +1,19 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "symptom",
+  "name": "heartburn",
+  "attributes": {
+   "onset": "after biryani at a team dinner",
+   "trigger": "biryani"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [
+   "alcohol"
+  ],
+  "other_symptoms": []
+ }
+}

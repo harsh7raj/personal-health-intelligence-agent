@@ -1,0 +1,20 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "symptom",
+  "name": "knee pain",
+  "attributes": {
+   "severity": "mild",
+   "location": "knee",
+   "circumstance": "after badminton"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [
+   "exercise"
+  ],
+  "other_symptoms": []
+ }
+}

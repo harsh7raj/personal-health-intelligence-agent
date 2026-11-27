@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Headache has now been logged 3 times, all rated mild, and the trend is stable. Similar mild headaches were logged on 2026-04-14 and 2026-06-05.",
+   "On the 2026-07-11 diabetes panel, HbA1c was 7.6% and fasting glucose was 152 mg/dL, both flagged above reference range. Both are lower than on the 2026-04-12 panel (8.4% and 171 mg/dL).",
+   "The latest blood glucose reading of 148 mg/dL, systolic BP of 135 and diastolic BP of 80 have each been stable."
+  ]
+ }
+}

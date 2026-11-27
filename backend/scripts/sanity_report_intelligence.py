@@ -1,6 +1,6 @@
 """Sanity check for Part 2 — report findings feeding the agent pipeline.
 
-End-to-end proof (uses the REAL Postgres + Chroma + Groq, nothing mocked):
+End-to-end proof (uses the REAL Postgres + Chroma + LLM, nothing mocked):
   1. Creates an isolated patient with NO cholesterol vitals (cholesterol only ever
      exists in reports here — so any cholesterol answer MUST come from report data).
   2. Uploads + parses 4 lipid panels over time with a rising LDL, running the real
@@ -12,7 +12,7 @@ End-to-end proof (uses the REAL Postgres + Chroma + Groq, nothing mocked):
        - the Reasoning agent's observations cite the lipid panel / LDL.
 
 Run:  uv run python -m scripts.sanity_report_intelligence
-Requires GROQ_API_KEY, Postgres and Chroma up.
+Requires an LLM key (LLM_API_KEY or FALLBACK_API_KEY) and Postgres.
 """
 
 import json

@@ -46,7 +46,7 @@ def build_medication_intelligence(db: Session, patient_id: int) -> dict:
     for m in meds:
         ingredient = normalize_ingredient(m.name)
         norm[m.id] = ingredient
-        # Curated MedlinePlus entry first; fall back to a labelled Groq reference
+        # Curated MedlinePlus entry first; fall back to a labelled AI reference
         # (Part 2) only for drugs not in the curated table. Never for interactions.
         reference = get_reference(ingredient) or ai_reference(ingredient)
         med_items.append(

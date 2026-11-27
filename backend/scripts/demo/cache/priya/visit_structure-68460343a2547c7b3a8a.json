@@ -1,0 +1,36 @@
+{
+ "task": "visit_structure",
+ "result": {
+  "reason": "Being tired and cold all the time.",
+  "discussed": [
+   "Tiredness and feeling cold all the time",
+   "TSH result of 7.2",
+   "Thyronorm dose increase",
+   "How to take Thyronorm"
+  ],
+  "doctor_said": [
+   "Dr. Menon said my TSH of 7.2 is high.",
+   "Dr. Menon said to take Thyronorm on an empty stomach at 7 am and wait before breakfast or tea."
+  ],
+  "medicine_changes": [
+   {
+    "action": "change",
+    "name": "Thyronorm",
+    "dose": "75 mcg",
+    "frequency": null,
+    "reason": "Dr. Menon said my TSH of 7.2 is high."
+   }
+  ],
+  "tests_ordered": [
+   {
+    "name": "TSH",
+    "when": "in 3 months"
+   }
+  ],
+  "follow_up": {
+   "when": null
+  },
+  "watch_for": [],
+  "questions_next_time": []
+ }
+}

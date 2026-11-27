@@ -1,0 +1,107 @@
+# Harsh: a recurring pattern and the visit loop (ROADMAP.md Phase 7).
+# Fictional patient. All dates are "days ago" from the day the replay runs, so the data is
+# always fresh on demo day. Times are IST.
+
+key: harsh
+login: {email: harsh@demo.phia, password: demo-harsh-123}
+patient: {name: Harsh Iyer, age: 52, sex: M, height: 172, weight: 82, blood_group: B+}
+background:
+  conditions: ["Type 2 diabetes (diagnosed 2018)"]
+  allergies: []
+  family_history: ["Father: type 2 diabetes"]
+  surgical_history: []
+  lifestyle: {smoking: false, alcohol: occasional, exercise: "evening walks, irregular",
+              work: "software manager in Bengaluru, long meeting days"}
+
+doctors:
+  - {name: Dr. Rao, specialty: Endocrinology}
+
+medicines:
+  - {name: Metformin, dose: 500 mg, frequency: twice daily, dose_times: ["08:00", "20:00"],
+     purpose: Blood sugar, prescriber: Dr. Rao, specialty: Endocrinology, started_days_ago: 2900}
+  - {name: Glimepiride, dose: 1 mg, frequency: once daily before breakfast, dose_times: ["08:00"],
+     purpose: Blood sugar, prescriber: Dr. Rao, specialty: Endocrinology, started_days_ago: 420}
+
+medication_changes:
+  - {medicine: Glimepiride, days_ago: 150, dose: 2 mg, note: "Raised at the visit after HbA1c 8.4"}
+
+history_days: 240          # how far back the logs and readings go
+adherence: {rate: 0.93, seed: 7}   # share of scheduled doses marked taken
+
+readings:
+  fasting_glucose: {every_days: 3, time: "07:30", start: 168, end: 122, noise: 8}
+  bp: {every_days: 21, time: "08:15", systolic: [131, 126], diastolic: [85, 80], noise: 3}
+  weight: {every_days: 30, time: "07:10", start: 82.6, end: 80.4, noise: 0.4}
+
+lab: {name: Nimbus Diagnostics (fictional), address: "100 Ft Road, Bengaluru 560038"}
+reports:   # HbA1c 8.4 -> 7.6 -> 6.9
+  - {days_ago: 230, hba1c: 8.4, fasting_glucose: 171}
+  - {days_ago: 140, hba1c: 7.6, fasting_glucose: 152}
+  - {days_ago: 40, hba1c: 6.9, fasting_glucose: 128}
+
+# The planted pattern: each on a day he skipped lunch after his morning glimepiride; two with
+# low readings; all after the dose increase (150 days ago).
+episodes:
+  - days_ago: 120
+    lunch: {time: "13:20", text: "skipped lunch today, back to back meetings till 3"}
+    episode: {time: "15:05", text: "felt shaky and sweaty around 3pm, a bit dizzy and heart racing. a biscuit helped"}
+    glucose: {time: "15:12", value: 62}
+  - days_ago: 90
+    lunch: {time: "13:35", text: "missed lunch, release call ran long"}
+    episode: {time: "15:30", text: "shaky and sweaty again in the afternoon, dizzy, heart pounding. settled after some juice"}
+    glucose: {time: "15:38", value: 66}
+  - days_ago: 45
+    lunch: {time: "13:10", text: "no lunch today, travelling between client offices"}
+    episode: {time: "15:15", text: "shaky, sweaty and dizzy mid afternoon, heart racing. ate something and it passed"}
+
+# Everyday logs in his own voice (written once by hand, so no model call is needed).
+logs:
+  - {days_ago: 236, time: "21:30", text: "walked 4 km after dinner, felt good"}
+  - {days_ago: 228, time: "19:10", text: "mild headache after a long day on screens"}
+  - {days_ago: 221, time: "22:40", text: "acidity after a late heavy dinner"}
+  - {days_ago: 214, time: "08:50", text: "slept badly, maybe 5 hours, tired this morning"}
+  - {days_ago: 205, time: "20:15", text: "knee ache after badminton with the team"}
+  - {days_ago: 197, time: "18:30", text: "runny nose and sneezing since this morning"}
+  - {days_ago: 195, time: "09:00", text: "cold is better, still a bit blocked nose"}
+  - {days_ago: 186, time: "21:05", text: "evening walk 30 mins, feeling fine"}
+  - {days_ago: 176, time: "19:45", text: "mild headache, long review meeting"}
+  - {days_ago: 168, time: "22:20", text: "stressed about the quarterly deadline, slept late"}
+  - {days_ago: 160, time: "08:40", text: "lower back stiff after a long drive yesterday"}
+  - {days_ago: 151, time: "18:00", text: "saw Dr. Rao today about my sugars"}
+  - {days_ago: 138, time: "21:30", text: "walked 5 km, sugar felt steady today"}
+  - {days_ago: 131, time: "20:10", text: "knee sore again after badminton"}
+  - {days_ago: 112, time: "22:50", text: "acidity after biryani at a team dinner, had two drinks"}
+  - {days_ago: 104, time: "09:10", text: "poor sleep, woke up at 3am thinking about work"}
+  - {days_ago: 97, time: "19:30", text: "mild headache in the evening, too much screen time"}
+  - {days_ago: 83, time: "21:15", text: "good week, walked most evenings"}
+  - {days_ago: 76, time: "18:40", text: "skipped lunch but felt fine, had an early dinner"}
+  - {days_ago: 68, time: "08:30", text: "flew back from Pune last night, tired and a bit jet lagged"}
+  - {days_ago: 61, time: "20:00", text: "lower back stiff after a long day in meetings"}
+  - {days_ago: 54, time: "21:40", text: "walked 4 km, feeling good"}
+  - {days_ago: 38, time: "19:20", text: "mild headache after back to back calls"}
+  - {days_ago: 31, time: "22:30", text: "acidity after a late dinner"}
+  - {days_ago: 24, time: "09:05", text: "slept only 5 hours, release week"}
+  - {days_ago: 17, time: "21:10", text: "evening walk 30 mins with my wife"}
+  - {days_ago: 10, time: "20:30", text: "knee ache after badminton, mild"}
+  - {days_ago: 4, time: "21:00", text: "feeling good this week, walked 3 evenings"}
+
+# Doctor visits: used by Phase 3 (visit recaps). Kept here so the story is in one place.
+visits:
+  - days_ago: 151
+    doctor: Dr. Rao
+    specialty: Endocrinology
+    recap: >-
+      Dr. Rao said my HbA1c of 8.4 is still high, so she increased glimepiride from 1 mg to 2 mg
+      before breakfast. She said not to skip meals after taking it, to watch for low sugars like
+      shaking, sweating or dizziness, and if that happens to check my sugar and take something
+      sweet like glucose or juice. Review in three months with a new HbA1c.
+
+# What we type live in the demo, and what a good reply does.
+live:
+  - message: "feeling shaky and sweaty, skipped lunch, meetings all day"
+    expect: [recalls the three earlier dates, shared skipped-lunch and morning-dose pattern,
+             episodes began after the glimepiride increase, quotes Dr. Rao (needs Phase 3),
+             asks him to check and log his sugar, suggests raising it at the next visit]
+  - message: "how have my sugars been since the dose change?"
+  - message: "Saw Dr. Rao today, she reduced glimepiride back to 1 mg because of the lows, asked me to keep a sugar diary, review in 6 weeks."
+    expect: [visit recap flow (Phase 3)]

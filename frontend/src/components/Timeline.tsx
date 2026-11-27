@@ -1,10 +1,11 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import * as ep from "@/lib/endpoints"
 import type { Problem, VitalReading, VitalSummary } from "@/lib/endpoints"
 import { Badge, Dialog } from "@/components/ui"
 import { TONE, severityTone, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
+import { vitalLabel } from "@/lib/vitals"
 
 interface Ev {
   t: number
@@ -125,7 +126,7 @@ function DetailModal({ patientId, ev, onClose }: { patientId: number; ev: Ev; on
                   <div className="mb-1 flex items-center gap-2">
                     <Badge className="border-border bg-muted/50 text-muted-foreground">{e.type}</Badge>
                     {e.source && <span className="text-xs text-muted-foreground">via {e.source}</span>}
-                    <span className="ml-auto text-xs text-muted-foreground">{fmtDateTime(e.created_at)}</span>
+                    <span className="ml-auto text-xs text-muted-foreground">{fmtDateTime(e.occurred_at)}</span>
                   </div>
                   {e.raw_text ? (
                     <p className="text-sm text-foreground">“{e.raw_text}”</p>
@@ -142,7 +143,7 @@ function DetailModal({ patientId, ev, onClose }: { patientId: number; ev: Ev; on
               {d.vital_readings.map((r) => (
                 <li key={r.id} className="flex items-center justify-between gap-3 text-sm">
                   <span className="text-foreground">
-                    <span className="font-medium">{r.vital_type.replace(/_/g, " ")}</span>{" "}
+                    <span className="font-medium">{vitalLabel(r.vital_type)}</span>{" "}
                     {Math.round(r.value * 10) / 10}
                     {r.unit ? ` ${r.unit}` : ""}
                   </span>
@@ -198,6 +199,12 @@ export function Timeline({
 }) {
   const [selected, setSelected] = useState<Ev | null>(null)
   const events = buildEvents(problems, vitals, summaries)
+  // Oldest -> newest left to right, but open scrolled to the newest end (recent first).
+  const scrollRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [events.length])
   if (!events.length) return <p className="text-sm text-muted-foreground">No timeline events yet.</p>
   const handle = (e: Ev) => {
     if (e.problemId != null && onSelectProblem) onSelectProblem(e.problemId)
@@ -205,7 +212,7 @@ export function Timeline({
   }
   return (
     <>
-      <div className="overflow-x-auto pb-1">
+      <div ref={scrollRef} className="overflow-x-auto pb-1">
         <div className="relative flex min-w-max items-start gap-2 px-1 pt-1">
           <div className="absolute left-3 right-3 top-[30px] h-px bg-border" />
           {events.map((e, i) => (

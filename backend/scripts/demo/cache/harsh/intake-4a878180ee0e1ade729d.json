@@ -1,0 +1,16 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "symptom",
+  "name": "heartburn",
+  "attributes": {
+   "onset": "after a late heavy dinner"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [],
+  "other_symptoms": []
+ }
+}

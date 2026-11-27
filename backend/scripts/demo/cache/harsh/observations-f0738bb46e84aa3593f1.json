@@ -1,0 +1,16 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   {
+    "text": "Runny nose is a new entry, logged as 1 episode alongside four other single-episode problems: fatigue, headache (mild), heartburn and knee pain."
+   },
+   {
+    "text": "The Diabetes Panel dated 2026-04-12 showed HbA1c at 8.4 % (reference 4.0 - 5.6) and fasting plasma glucose at 171 mg/dL (reference 70 - 100), both flagged high. Estimated average glucose was 194 mg/dL."
+   },
+   {
+    "text": "The latest blood glucose reading is 152.0 and has been stable. Blood pressure (127/79) and weight (82.7) are also stable. A past entry on 2026-04-28 noted poor sleep and morning tiredness, and fatigue is currently logged as 1 episode."
+   }
+  ]
+ }
+}

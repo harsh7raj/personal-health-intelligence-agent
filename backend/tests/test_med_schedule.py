@@ -3,8 +3,9 @@ across a rolling 14-day window, meds group by purpose, and the adherence record
 (mark/unmark) is idempotent. Tracking only — no advice text is asserted because none is
 produced. Offline: per-drug timing reuse is stubbed so no network/LLM is touched."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
+from app.core import clock
 from app.models.clinical import DoseLog, Medication
 from app.models.patient import Patient
 from app.models.user import User
@@ -87,8 +88,8 @@ def test_window_is_14_days_and_dose_times_expand_into_slots(db, monkeypatch):
 
     cal = build_med_calendar(db, pid)
     assert len(cal["days"]) == DAYS_BACK + DAYS_FORWARD + 1 == 14
-    assert cal["start_date"] == date.today() - timedelta(days=DAYS_BACK)
-    assert cal["end_date"] == date.today() + timedelta(days=DAYS_FORWARD)
+    assert cal["start_date"] == clock.today() - timedelta(days=DAYS_BACK)
+    assert cal["end_date"] == clock.today() + timedelta(days=DAYS_FORWARD)
 
     # Two dose_times → two slots every day, carrying the reused timing guidance.
     for day in cal["days"]:
@@ -103,7 +104,7 @@ def test_future_slots_not_markable_past_and_today_markable(db, monkeypatch):
     _add_med(db, pid, "Metformin", dose_times=["08:00"])
     db.flush()
     cal = build_med_calendar(db, pid)
-    today = date.today()
+    today = clock.today()
     for day in cal["days"]:
         for s in day["slots"]:
             assert s["markable"] == (day["date"] <= today)
@@ -133,7 +134,7 @@ def test_adherence_overlay_marks_taken(db, monkeypatch):
     pid = _patient(db)
     m = _add_med(db, pid, "Metformin", dose_times=["08:00", "20:00"])
     db.flush()
-    today = date.today()
+    today = clock.today()
     db.add(
         DoseLog(
             patient_id=pid, medication_id=m.id,
@@ -147,3 +148,15 @@ def test_adherence_overlay_marks_taken(db, monkeypatch):
     by_time = {s["time"]: s for s in today_day["slots"]}
     assert by_time["08:00"]["taken"] is True
     assert by_time["20:00"]["taken"] is False
+
+
+def test_today_is_the_ist_calendar_day_not_the_utc_one(db, monkeypatch):
+    """20:00 UTC on 14 Mar is already 01:30 on 15 Mar in India: the tracker's today is the 15th."""
+    monkeypatch.setattr("app.services.med_schedule._timing_for", lambda name: None)
+    pid = _patient(db)
+    _add_med(db, pid, "Metformin", dose_times=["08:00"])
+    db.flush()
+    with clock.frozen_at(datetime(2026, 3, 14, 20, 0, tzinfo=timezone.utc)):
+        cal = build_med_calendar(db, pid)
+    assert cal["today"] == date(2026, 3, 15)
+    assert [d["date"] for d in cal["days"] if d["is_today"]] == [date(2026, 3, 15)]

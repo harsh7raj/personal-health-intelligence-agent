@@ -1,0 +1,21 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "note",
+  "name": "walking",
+  "attributes": {
+   "activity": "walking",
+   "frequency": "3 evenings",
+   "period": "this week",
+   "general_feeling": "feeling good"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [
+   "exercise"
+  ],
+  "other_symptoms": []
+ }
+}

@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { X } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 import * as ep from "@/lib/endpoints"
 import type { Problem, VitalReading } from "@/lib/endpoints"
@@ -47,6 +48,49 @@ function Bullets({ items }: { items: string[] }) {
         </li>
       ))}
     </ul>
+  )
+}
+
+function SuggestedActionsCard({ pid }: { pid: number }) {
+  const qc = useQueryClient()
+  const actions = useQuery({ queryKey: ["suggested-actions", pid], queryFn: () => ep.listSuggestedActions(pid) })
+  const dismiss = useMutation({
+    mutationFn: (actionId: number) => ep.dismissSuggestedAction(pid, actionId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["suggested-actions", pid] })
+      qc.invalidateQueries({ queryKey: ["snapshot", pid] })
+    },
+  })
+  const items = actions.data ?? []
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Suggested Actions</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {!items.length ? (
+          <p className="text-sm text-muted-foreground">None.</p>
+        ) : (
+          <ul className="space-y-2 text-sm">
+            {items.map((a) => (
+              <li key={a.id} className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                <span className="flex-1">{a.text}</span>
+                <button
+                  onClick={() => dismiss.mutate(a.id)}
+                  disabled={dismiss.isPending}
+                  className="rounded p-0.5 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                  aria-label={`Dismiss: ${a.text}`}
+                  title="Dismiss"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -193,14 +237,7 @@ export default function DashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <ProblemsCard problems={problems.data ?? []} onSelect={setProblemId} />
-        <Card>
-          <CardHeader>
-            <CardTitle>Suggested Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Bullets items={snap.data?.suggested_next_actions ?? []} />
-          </CardContent>
-        </Card>
+        <SuggestedActionsCard pid={pid} />
       </div>
 
       <Card>

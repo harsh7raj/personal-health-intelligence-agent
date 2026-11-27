@@ -1,0 +1,30 @@
+{
+ "task": "report_extract",
+ "result": {
+  "report_type": "Diabetes Panel",
+  "test_date": "2026-04-12",
+  "values": [
+   {
+    "test_name": "HbA1c (Glycated haemoglobin)",
+    "value": "8.4",
+    "unit": "%",
+    "reference_range": "4.0 - 5.6",
+    "flag": "high"
+   },
+   {
+    "test_name": "Estimated average glucose (eAG)",
+    "value": "194",
+    "unit": "mg/dL",
+    "reference_range": null,
+    "flag": "unknown"
+   },
+   {
+    "test_name": "Fasting plasma glucose",
+    "value": "171",
+    "unit": "mg/dL",
+    "reference_range": "70 - 100",
+    "flag": "high"
+   }
+  ]
+ }
+}

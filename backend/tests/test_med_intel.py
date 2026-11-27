@@ -30,7 +30,7 @@ def test_known_interaction_is_sourced_and_unknown_pair_is_not_called_safe(db, mo
     monkeypatch.setattr(
         "app.services.med_intel.normalize_ingredient", lambda n: n.strip().lower()
     )
-    # Keep tests offline: no Groq fallback calls for uncurated drugs.
+    # Keep tests offline: no LLM fallback calls for uncurated drugs.
     monkeypatch.setattr("app.services.med_intel.ai_reference", lambda n: None)
     # The ONLY interaction the system knows about is the one we put in the table.
     db.add(
@@ -89,7 +89,7 @@ def test_no_interaction_is_ever_invented(db, monkeypatch):
     monkeypatch.setattr(
         "app.services.med_intel.normalize_ingredient", lambda n: n.strip().lower()
     )
-    # Keep tests offline: no Groq fallback calls for uncurated drugs.
+    # Keep tests offline: no LLM fallback calls for uncurated drugs.
     monkeypatch.setattr("app.services.med_intel.ai_reference", lambda n: None)
     pid = _patient_with_meds(db, ["DrugX", "DrugY"])
     db.flush()
@@ -98,27 +98,27 @@ def test_no_interaction_is_ever_invented(db, monkeypatch):
     assert all(i["status"] == "none_known" for i in out["interactions"])
 
 
-# ---------- Part 2: Groq fallback for per-drug REFERENCE info only ----------
+# ---------- Part 2: LLM fallback for per-drug REFERENCE info only ----------
 
 
-def _stub_groq(monkeypatch, payload: dict):
-    """Force the offline Groq client to return `payload`, and reset the module cache so
-    the stub is actually exercised instead of a prior real result. conftest runs with
-    GROQ_API_KEY="" (offline), so we also satisfy the api-key guard inside ai_reference."""
+def _stub_llm(monkeypatch, payload: dict):
+    """Make the stubbed LLM return `payload`, and reset the module cache so the stub is
+    actually exercised instead of a prior result. conftest runs with no LLM configured
+    (offline), so we also satisfy the availability check inside ai_reference."""
     import app.services.drug_reference_ai as ai
 
     ai._cache.clear()
-    monkeypatch.setattr(ai.settings, "GROQ_API_KEY", "test-key")
-    monkeypatch.setattr(ai, "groq_json", lambda system, user, model=None: payload)
+    monkeypatch.setattr(ai, "is_available", lambda: True)
+    monkeypatch.setattr(ai, "llm_json", lambda task, system, user, **_kw: payload)
 
 
 def test_ai_reference_used_only_for_uncurated_drug_and_clearly_labelled(db, monkeypatch):
     """A curated drug keeps its MedlinePlus provenance; an uncurated drug falls through
-    to the Groq reference, which is labelled provenance='ai' with a distinct source."""
+    to the LLM reference, which is labelled provenance='ai' with a distinct source."""
     monkeypatch.setattr(
         "app.services.med_intel.normalize_ingredient", lambda n: n.strip().lower()
     )
-    _stub_groq(
+    _stub_llm(
         monkeypatch,
         {
             "used_for": "commonly used for nerve pain and seizures",
@@ -126,7 +126,7 @@ def test_ai_reference_used_only_for_uncurated_drug_and_clearly_labelled(db, monk
             "considerations": "drowsiness is a common general consideration",
         },
     )
-    # amlodipine = curated (MedlinePlus); gabapentin = not curated → Groq fallback.
+    # amlodipine = curated (MedlinePlus); gabapentin = not curated → LLM fallback.
     pid = _patient_with_meds(db, ["amlodipine", "gabapentin"])
     db.flush()
     out = build_medication_intelligence(db, pid)
@@ -143,12 +143,12 @@ def test_ai_reference_used_only_for_uncurated_drug_and_clearly_labelled(db, monk
 
 
 def test_ai_reference_drops_diagnostic_sounding_content(db, monkeypatch):
-    """The non-diagnostic guard applies to Groq output too: diagnostic phrasing is
+    """The non-diagnostic guard applies to LLM output too: diagnostic phrasing is
     dropped rather than shown, leaving the medication with no reference."""
     monkeypatch.setattr(
         "app.services.med_intel.normalize_ingredient", lambda n: n.strip().lower()
     )
-    _stub_groq(
+    _stub_llm(
         monkeypatch,
         {
             "used_for": "used to treat your high blood pressure",  # diagnostic/personalized
@@ -162,13 +162,13 @@ def test_ai_reference_drops_diagnostic_sounding_content(db, monkeypatch):
     assert out["medications"][0]["reference"] is None
 
 
-def test_groq_never_supplies_interaction_verdicts(db, monkeypatch):
-    """Hard boundary: even with Groq returning content, interactions come solely from
+def test_llm_never_supplies_interaction_verdicts(db, monkeypatch):
+    """Hard boundary: even with the LLM returning content, interactions come solely from
     DDInter. An uncurated pair with no DDInter row stays 'none_known', never invented."""
     monkeypatch.setattr(
         "app.services.med_intel.normalize_ingredient", lambda n: n.strip().lower()
     )
-    _stub_groq(
+    _stub_llm(
         monkeypatch,
         {
             "used_for": "commonly used for nerve pain",

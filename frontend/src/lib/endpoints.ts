@@ -25,20 +25,23 @@ export interface Alert {
 export interface VitalReading {
   id: number; patient_id: number; vital_type: string; value: number
   unit: string | null; recorded_at: string; created_at: string
+  attributes?: Record<string, unknown> // lab series carry test_name, reference_range, report_id
 }
 export interface VitalSummary {
   vital_type: string; latest: number | null; recent_avg: number | null
   baseline_avg: number | null; delta_pct: number | null; trend: string | null
 }
 export interface Medication {
-  id: number; patient_id: number; name: string; dose: string | null
+  id: number; patient_id: number; name: string; brand_name: string | null; ingredients: string[]; dose: string | null
   frequency: string | null; dose_times: string[]; interval_days: number; purpose: string | null
+  prescriber: string | null; prescriber_specialty: string | null
   started_on: string | null; active: boolean
   attributes: Record<string, unknown>; created_at: string; updated_at: string
 }
 export interface Symptom {
   id: number; patient_id: number; type: string; raw_text: string | null
   structured: Record<string, unknown>; source: string | null; created_at: string
+  occurred_at: string
 }
 export interface Problem {
   id: number; name: string; severity: string | null; frequency: string | null
@@ -46,6 +49,9 @@ export interface Problem {
   last_seen: string | null; resolved_at: string | null; attributes: Record<string, unknown>
 }
 export interface Observation { id: number; text: string; created_at: string }
+export interface SuggestedAction {
+  id: number; text: string; created_at: string; dismissed: boolean; dismissed_at: string | null
+}
 export interface DoctorAccess {
   id: number; token: string; doctor_label: string | null
   expires_at: string; revoked: boolean; created_at: string
@@ -72,8 +78,10 @@ export interface NewEntry {
   raw_text: string
 }
 export interface IntakeResult {
-  status: "processed" | "clarification_needed"
-  question?: string | null
+  status: "processed" | "clarification_needed" | "question"
+  question?: string | null // clarifying question
+  user_question?: string | null // what the user asked (router)
+  reply?: string | null // status "question": shown instead of logging
   new_entry?: NewEntry | null
   context_bundle?: { semantic_matches?: SemanticMatch[] } & Record<string, unknown> | null
   reasoning_summary?: ReasoningSummary | null
@@ -85,11 +93,13 @@ export interface HistoryEntry {
   raw_text: string | null
   structured: Record<string, unknown>
   source: string | null
-  created_at: string
+  created_at: string // when it was logged
+  occurred_at: string // when it happened (backdated)
 }
 export interface TimelineEntryDetail {
   id: number; type: string; raw_text: string | null
   structured: Record<string, unknown>; source: string | null; created_at: string
+  occurred_at: string
 }
 export interface TimelineVitalDetail {
   id: number; vital_type: string; value: number; unit: string | null; recorded_at: string
@@ -109,6 +119,7 @@ export interface TimelineDetail {
 export interface AlertContextReading {
   id: number; vital_type: string; value: number; unit: string | null
   recorded_at: string; breaches: boolean
+  display?: string | null // e.g. "147/92" for a whole BP reading
 }
 export interface AlertContext {
   alert: Alert; threshold: string | null; readings: AlertContextReading[]
@@ -215,9 +226,55 @@ export const unmarkDose = (
 ) => api.delete(`/patients/${id}/medications/${medId}/doses`, { data: slot })
 export const createMedication = (
   id: number,
-  m: { name: string; dose?: string; frequency?: string; dose_times?: string[]; purpose?: string },
+  m: {
+    name: string; dose?: string; frequency?: string; dose_times?: string[]; purpose?: string
+    prescriber?: string; prescriber_specialty?: string; brand_name?: string; ingredients?: string[]
+  },
 ) =>
   api.post<Medication>(`/patients/${id}/medications`, m).then((r) => r.data)
+
+// ---------- Medication safety (Phase 5) ----------
+export interface MedFinding {
+  id: string
+  kind: "interaction" | "duplicate" | "timing" | "condition" | "side_effect" | "alcohol"
+  level: "verified" | "label" | "ai"
+  level_label: string
+  severity: string | null
+  medicines: string[]
+  title: string
+  explanation: string
+  quote: string | null
+  source: { name: string; url: string | null; note?: string } | null
+  pharmacist_questions: string[]
+}
+export interface MedSafety {
+  checked_at: string
+  medicines: string[]
+  findings: MedFinding[]
+  pairs: { medicines: string[]; found: boolean; message: string | null }[]
+  no_finding_message: string
+  unresolved_medicines: string[]
+  labels_missing: string[]
+  ai_flags_enabled: boolean
+  disclaimer: string
+  sources: { name: string; url: string }[]
+}
+export interface NameResolution {
+  status: "rxnorm" | "suggested" | "unknown" | "offline"
+  ingredients: string[]
+  suggestion: { name: string; strength: string | null; rxnorm_ingredients: string[]; verified: boolean }[]
+  needs_confirmation: boolean
+}
+export interface MedCheck {
+  medicine: string; recognized: boolean; assumed?: string | null; ingredients?: string[]
+  findings: MedFinding[]; message: string | null
+}
+export const getMedSafety = (id: number, refresh = false) =>
+  api.get<MedSafety>(`/patients/${id}/medications/safety`, { params: { refresh } }).then((r) => r.data)
+export const resolveMedName = (id: number, name: string) =>
+  api.post<NameResolution>(`/patients/${id}/medications/resolve-name`, { name }).then((r) => r.data)
+export const checkMedicine = (id: number, name: string) =>
+  api.post<MedCheck>(`/patients/${id}/medications/check`, { name }).then((r) => r.data)
 export const deleteMedication = (id: number, mid: number) =>
   api.delete(`/patients/${id}/medications/${mid}`)
 export const listSymptoms = (id: number) =>
@@ -242,9 +299,44 @@ export interface Report {
   ai_summary: string | null
   flagged_values: FlaggedValue[]
   flagged_count: number
+  critical_count: number
   parse_error: string | null
   created_at: string
 }
+export interface ReportRow {
+  test_name: string
+  display_name: string
+  test_key: string | null
+  value: string | null
+  unit: string | null
+  reference_range: string | null
+  range_low: number | null
+  range_high: number | null
+  flag: string
+  outside_by: { direction: "above" | "below"; amount: number; percent: number | null } | null
+  critical: { direction: string; message: string } | null
+  previous: { id: string; value: number; unit: string | null; date: string } | null
+  change: { amount: number; percent: number | null; direction: "up" | "down" | "same" } | null
+  glossary_id: string | null
+}
+export interface ReportDetail {
+  id: number
+  filename: string
+  report_type: string | null
+  status: ReportStatus
+  test_date: string | null
+  ai_summary: string | null
+  parse_error: string | null
+  created_at: string
+  values: ReportRow[]
+  critical: { test_name: string; message: string }[]
+}
+export const getReport = (id: number, rid: number) =>
+  api.get<ReportDetail>(`/patients/${id}/reports/${rid}`).then((r) => r.data)
+export const explainReport = (id: number, rid: number, regenerate = false) =>
+  api.post<ChatMessage>(`/patients/${id}/reports/${rid}/explain`, null, { params: { regenerate } }).then((r) => r.data)
+export const reportQuestions = (id: number, rid: number) =>
+  api.post<{ questions: string[]; generated_by: string }>(`/patients/${id}/reports/${rid}/questions`).then((r) => r.data)
 export const listReports = (id: number) =>
   api.get<Report[]>(`/patients/${id}/reports`).then((r) => r.data)
 export const retryReport = (id: number, rid: number) =>
@@ -288,6 +380,10 @@ export const listAlerts = (id: number, unacknowledged = false) =>
   api.get<Alert[]>(`/patients/${id}/alerts`, { params: { unacknowledged } }).then((r) => r.data)
 export const ackAlert = (id: number, aid: number) =>
   api.post<Alert>(`/patients/${id}/alerts/${aid}/ack`).then((r) => r.data)
+export const listSuggestedActions = (id: number) =>
+  api.get<SuggestedAction[]>(`/patients/${id}/suggested-actions`).then((r) => r.data)
+export const dismissSuggestedAction = (id: number, actionId: number) =>
+  api.post<SuggestedAction>(`/patients/${id}/suggested-actions/${actionId}/dismiss`).then((r) => r.data)
 export const getAlertContext = (id: number, aid: number) =>
   api.get<AlertContext>(`/patients/${id}/alerts/${aid}/context`).then((r) => r.data)
 export const getProblemTimeline = (id: number, problemId: number) =>
@@ -307,3 +403,36 @@ export const getSharedSnapshot = (token: string) =>
 export const getSharedStory = (token: string) =>
   api.get<Story>(`/shared/${token}/story`).then((r) => r.data)
 export const sharedPdfUrl = (token: string) => `${import.meta.env.VITE_API_BASE ?? "/api"}/shared/${token}/consultation/pdf`
+
+// ---------- Assistant chat (Phase 2) ----------
+export interface ChatEvidence {
+  id: string; kind: string; date?: string | null; time?: string | null; text?: string | null
+  name?: string | null; value?: number; unit?: string | null; vital_type?: string
+  medication?: string; event?: string; old_dose?: string | null; new_dose?: string | null
+  report_type?: string | null; entry_id?: number; report_id?: number
+  measures?: string; url?: string; test?: string
+  level_label?: string; title?: string; explanation?: string; quote?: string | null
+}
+export interface ChatEscalation {
+  kind: "medical" | "mental_health"; reasons: string[]; message: string; call: string; offer?: string[]
+}
+export interface LoggedTag {
+  entry_id: number; type: string; name: string | null; severity?: string | null
+  tags: string[]; occurred_at?: string | null
+}
+export interface ChatReply {
+  message_id: number; reply: string; evidence: ChatEvidence[]; logged_entry: LoggedTag | null
+  escalation: ChatEscalation | null; needs_clarification: boolean; generated_by: string | null
+}
+export interface ChatMessage {
+  id: number; role: "user" | "assistant"; content: string; evidence: ChatEvidence[]; created_at: string
+  meta: {
+    logged_entry?: LoggedTag; escalation?: ChatEscalation; generated_by?: string; clarify_for?: string
+    report_id?: number; kind?: string; critical?: string[]
+  }
+}
+export const sendChat = (id: number, message: string, focus?: Record<string, unknown>) =>
+  api.post<ChatReply>(`/patients/${id}/chat`, { message, focus }).then((r) => r.data)
+export const getChatHistory = (id: number, reportId?: number) =>
+  api.get<ChatMessage[]>(`/patients/${id}/chat`, { params: reportId ? { report_id: reportId } : undefined })
+    .then((r) => r.data)

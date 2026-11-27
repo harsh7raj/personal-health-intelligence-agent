@@ -1,0 +1,18 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "symptom",
+  "name": "swelling",
+  "attributes": {
+   "location": "both ankles",
+   "timing": "by evening",
+   "description": "socks leave a mark"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [],
+  "other_symptoms": []
+ }
+}

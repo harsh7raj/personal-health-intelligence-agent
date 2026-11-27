@@ -12,6 +12,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     func,
     text,
@@ -19,6 +20,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core import clock
 from app.db.base import Base
 from app.models.mixins import CreatedAtMixin, TimestampMixin
 
@@ -31,6 +33,13 @@ class Medication(TimestampMixin, Base):
         ForeignKey("patients.id", ondelete="CASCADE"), index=True, nullable=False
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Phase 5 (D35): the brand as written ("Thyronorm 75") and the generic ingredients every
+    # safety check runs on (["levothyroxine"]). Set from RxNorm, or from an AI suggestion
+    # only after the user confirms it.
+    brand_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ingredients: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
     dose: Mapped[str | None] = mapped_column(String(128), nullable=True)
     frequency: Mapped[str | None] = mapped_column(String(128), nullable=True)
     # Structured dose schedule: list of "HH:MM" strings the dose-tracker calendar
@@ -47,6 +56,9 @@ class Medication(TimestampMixin, Base):
     # Free-text grouping ("eye strain", "blood pressure") used to cluster meds in the
     # tracker. Null is rendered as "Other".
     purpose: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # Who prescribed it (e.g. "Dr. Rao", "Endocrinology"), to spot clashes between doctors.
+    prescriber: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    prescriber_specialty: Mapped[str | None] = mapped_column(String(128), nullable=True)
     started_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("true")
@@ -54,6 +66,40 @@ class Medication(TimestampMixin, Base):
     attributes: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
     )
+
+
+class MedicationEvent(CreatedAtMixin, Base):
+    """History of a medicine: started, stopped or dose changed (memory.md D20). Rows are
+    never overwritten; the medications row only holds the current state."""
+
+    __tablename__ = "medication_events"
+    __table_args__ = (
+        CheckConstraint(
+            "event_type in ('start','stop','dose_change')", name="ck_med_events_type"
+        ),
+        CheckConstraint("source in ('manual','visit_note')", name="ck_med_events_source"),
+        Index("ix_med_events_patient_date", "patient_id", "event_date"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    patient_id: Mapped[int] = mapped_column(
+        ForeignKey("patients.id", ondelete="CASCADE"), nullable=False
+    )
+    # Deleting a medicine (an entry made by mistake) removes its history; stopping it
+    # is the "it ended" path, and that is recorded as an event.
+    medication_id: Mapped[int] = mapped_column(
+        ForeignKey("medications.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    medication_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    event_date: Mapped[date] = mapped_column(Date, nullable=False)  # patient calendar day
+    old_dose: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    new_dose: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    prescriber: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    source: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="manual", server_default="manual"
+    )
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class DoseLog(CreatedAtMixin, Base):
@@ -82,7 +128,7 @@ class DoseLog(CreatedAtMixin, Base):
     scheduled_date: Mapped[date] = mapped_column(Date, nullable=False)
     scheduled_time: Mapped[str] = mapped_column(String(5), nullable=False)  # "HH:MM"
     taken_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True), default=clock.now, server_default=func.now(), nullable=False
     )
 
 

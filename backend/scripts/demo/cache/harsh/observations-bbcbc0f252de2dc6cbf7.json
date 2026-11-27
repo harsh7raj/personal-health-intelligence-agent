@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "HbA1c was 6.9% on the 2026-10-19 Diabetes Panel, down from 7.6% on 2026-07-11 and 8.4% on 2026-04-12. Fasting plasma glucose followed the same pattern: 171, then 152, then 128 mg/dL.",
+   "Walks were logged on 2026-04-06, 2026-05-26 and 2026-09-06, each described as feeling good or fine. Blood glucose readings are currently trending down, with the latest at 133.",
+   "Heartburn is increasing, with 2 episodes logged. Shakiness (3 episodes) and headache (4 episodes, mild) are stable."
+  ]
+ }
+}

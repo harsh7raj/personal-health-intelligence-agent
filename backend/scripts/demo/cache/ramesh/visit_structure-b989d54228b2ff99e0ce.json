@@ -1,0 +1,35 @@
+{
+ "task": "visit_structure",
+ "result": {
+  "reason": "Follow-up for blood pressure that has been in the 150s.",
+  "discussed": [
+   "Blood pressure readings in the 150s",
+   "Increasing amlodipine dose",
+   "Checking blood pressure every few days"
+  ],
+  "doctor_said": [
+   "Dr. Shah said to increase amlodipine from 5 mg to 10 mg once a day.",
+   "Dr. Shah said to keep checking blood pressure every few days.",
+   "Dr. Shah said to come back in two months.",
+   "Dr. Shah said to call if chest pain or breathlessness occurs."
+  ],
+  "medicine_changes": [
+   {
+    "action": "change",
+    "name": "amlodipine",
+    "dose": "10 mg",
+    "frequency": "once daily",
+    "reason": null
+   }
+  ],
+  "tests_ordered": [],
+  "follow_up": {
+   "when": "in two months"
+  },
+  "watch_for": [
+   "Chest pain",
+   "Breathlessness"
+  ],
+  "questions_next_time": []
+ }
+}

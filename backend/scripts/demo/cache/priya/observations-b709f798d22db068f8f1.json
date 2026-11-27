@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Fatigue is now logged as 2 episodes with an increasing trend, and the latest severity is recorded as \"exhausted\".",
+   "A similar entry was logged on 2025-10-24, describing being tired all week and feeling cold in the afternoon.",
+   "Hair loss has been logged once alongside the fatigue entries, while weight has remained stable at 57.6."
+  ]
+ }
+}

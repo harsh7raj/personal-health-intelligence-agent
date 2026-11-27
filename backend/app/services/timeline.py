@@ -53,10 +53,10 @@ def build_timeline_detail(
             select(Entry)
             .where(
                 Entry.patient_id == patient_id,
-                Entry.created_at >= start,
-                Entry.created_at < end,
+                Entry.occurred_at >= start,
+                Entry.occurred_at < end,
             )
-            .order_by(Entry.created_at)
+            .order_by(Entry.occurred_at)
         ).all()
     )
     readings = list(

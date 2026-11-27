@@ -54,7 +54,7 @@ def test_problem_increment_and_autoresolve(db):
     db.flush()
     assert p3.id == p1.id
     assert p3.attributes["episode_count"] == 3
-    assert p3.trend == "increasing"
+    assert p3.frequency == "3 episodes"  # trend is frequency-based now (test_problem_trend.py)
 
     p3.last_seen = datetime.now(timezone.utc) - timedelta(days=120)
     db.flush()
@@ -69,7 +69,7 @@ def test_cluster_forms_from_cooccurring_symptoms(db):
     db.add(Entry(patient_id=pid, type="symptom", raw_text="headache", structured={"name": "headache"}))
     db.add(Entry(patient_id=pid, type="symptom", raw_text="nausea", structured={"name": "nausea"}))
     db.flush()
-    cluster = update_clusters(db, pid, {"type": "symptom", "name": "nausea"})
-    assert cluster is not None
-    assert sorted(cluster.symptoms) == ["headache", "nausea"]
-    assert cluster.occurrences == 1
+    clusters = update_clusters(db, pid)
+    assert len(clusters) == 1
+    assert sorted(clusters[0].symptoms) == ["headache", "nausea"]
+    assert clusters[0].occurrences == 1

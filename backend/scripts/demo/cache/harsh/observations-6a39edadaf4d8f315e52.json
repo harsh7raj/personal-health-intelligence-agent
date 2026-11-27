@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "A similar poor sleep entry was logged on 2026-04-28 (slept about 5 hours, tired the next morning), so this is the second poor sleep entry on record.",
+   "HbA1c was 7.6% on the 2026-07-11 Diabetes Panel, down from 8.4% on 2026-04-12, though still flagged above the 4.0-5.6% reference range. Fasting plasma glucose was 152 mg/dL on 2026-07-11, down from 171 mg/dL.",
+   "The most recent blood glucose vital reading was 157, with a rising trend (about 21% change), while the lab report values have trended downward between the two panels."
+  ]
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Nasal congestion (mild) is a new entry, and a runny nose was also logged as a single episode, so both nasal symptoms now appear in the active problem list.",
+   "The Diabetes Panel from 2026-04-12 reported HbA1c of 8.4% and fasting plasma glucose of 171 mg/dL, both flagged high against their reference ranges. Estimated average glucose was 194 mg/dL.",
+   "The latest blood glucose reading was 158.0 and has been stable. Blood pressure (127/79) and weight (82.7) have also been stable."
+  ]
+ }
+}

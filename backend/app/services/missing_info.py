@@ -1,10 +1,11 @@
 """Gap detection (missing info) + derived suggested actions. Deterministic, dedup'd."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import clock
 from app.core.config import get_settings
 from app.models.clinical import VitalReading
 from app.models.intelligence import MissingInformation, SuggestedAction
@@ -30,13 +31,49 @@ def _add_missing(db: Session, patient_id: int, desc: str, related: str, out: lis
         out.append(desc)
 
 
+LOG_BP_ACTION = "Log today's blood pressure"
+# After the user dismisses a suggestion, the same suggestion isn't re-added for this long.
+DISMISS_COOLDOWN_DAYS = 14
+
+
+def _resolve_missing(db: Session, patient_id: int, related: str) -> list[str]:
+    """Close open gaps about `related` (the data has arrived); returns their descriptions."""
+    rows = db.scalars(
+        select(MissingInformation).where(
+            MissingInformation.patient_id == patient_id,
+            MissingInformation.related_to == related,
+            MissingInformation.resolved.is_(False),
+        )
+    ).all()
+    for row in rows:
+        row.resolved = True
+    return [row.description for row in rows]
+
+
+def dismiss_action(action: SuggestedAction) -> None:
+    action.dismissed = True
+    action.dismissed_at = clock.now()
+
+
+def _dismiss_text(db: Session, patient_id: int, text: str) -> None:
+    for action in db.scalars(
+        select(SuggestedAction).where(
+            SuggestedAction.patient_id == patient_id,
+            SuggestedAction.text == text,
+            SuggestedAction.dismissed.is_(False),
+        )
+    ).all():
+        dismiss_action(action)
+
+
 def check_missing_info(db: Session, patient_id: int) -> list[str]:
+    """Add newly found gaps (returned) and close gaps the data now fills."""
     out: list[str] = []
     bg = db.scalar(
         select(MedicalBackground).where(MedicalBackground.patient_id == patient_id)
     )
     conditions = [str(c).lower() for c in (bg.conditions if bg else [])]
-    now = datetime.now(timezone.utc)
+    now = clock.now()
 
     if any("hypertension" in c or "high blood pressure" in c for c in conditions):
         last_bp = db.scalar(
@@ -57,20 +94,26 @@ def check_missing_info(db: Session, patient_id: int) -> list[str]:
                 "blood pressure",
                 out,
             )
+        elif _resolve_missing(db, patient_id, "blood pressure"):
+            _dismiss_text(db, patient_id, LOG_BP_ACTION)  # done: a reading was logged
     return out
 
 
 def _add_action(db: Session, patient_id: int, text: str, out: list[str]) -> None:
-    existing = db.scalar(
-        select(SuggestedAction).where(
-            SuggestedAction.patient_id == patient_id,
-            SuggestedAction.text == text,
-            SuggestedAction.dismissed.is_(False),
+    def same(*conditions):
+        return db.scalar(
+            select(SuggestedAction).where(
+                SuggestedAction.patient_id == patient_id, SuggestedAction.text == text, *conditions
+            )
         )
-    )
-    if existing is None:
-        db.add(SuggestedAction(patient_id=patient_id, text=text))
-        out.append(text)
+
+    if same(SuggestedAction.dismissed.is_(False)) is not None:
+        return  # already showing
+    cooldown_start = clock.now() - timedelta(days=DISMISS_COOLDOWN_DAYS)
+    if same(SuggestedAction.dismissed_at >= cooldown_start) is not None:
+        return  # the user dismissed this recently; don't bring it straight back
+    db.add(SuggestedAction(patient_id=patient_id, text=text))
+    out.append(text)
 
 
 def suggested_actions(
@@ -78,7 +121,7 @@ def suggested_actions(
 ) -> list[str]:
     out: list[str] = []
     if any("blood pressure" in m.lower() for m in missing):
-        _add_action(db, patient_id, "Log today's blood pressure", out)
+        _add_action(db, patient_id, LOG_BP_ACTION, out)
     if any(a["kind"] in ("high_bp", "critical_bp") for a in alerts):
         _add_action(
             db,

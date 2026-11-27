@@ -1,0 +1,18 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "symptom",
+  "name": "nasal congestion",
+  "attributes": {
+   "severity": "mild",
+   "progression": "improving",
+   "note": "user reports cold is better; nose still a bit blocked"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [],
+  "other_symptoms": []
+ }
+}

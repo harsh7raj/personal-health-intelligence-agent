@@ -30,6 +30,11 @@ def test_full_pipeline(client):
     assert story["generated_by"] == "fallback"
     assert story["story"]
 
+    # consultation PDF renders on every OS (regression: "%-d" crashed on Windows)
+    pdf = client.get(f"/api/patients/{pid}/consultation/pdf", headers=h)
+    assert pdf.status_code == 200
+    assert pdf.content.startswith(b"%PDF")
+
     # doctor token -> shared works -> revoke -> 403
     tok = client.post(f"/api/patients/{pid}/doctor-access", json={}, headers=h).json()
     assert client.get(f"/api/shared/{tok['token']}/snapshot").status_code == 200

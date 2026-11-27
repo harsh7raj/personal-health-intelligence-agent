@@ -6,9 +6,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
+    visits,
+    actions,
     alerts,
     auth,
     background,
+    chat,
     doctor_access,
     entries,
     health,
@@ -23,6 +26,7 @@ from app.api.routes import (
     vitals,
 )
 from app.core.config import get_settings
+from app.core.llm import describe as describe_llm
 from app.services.report_extraction import reconcile_orphaned_parses
 from app.vectorstore.collections import bootstrap_collections
 
@@ -31,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.warning(describe_llm())  # which LLM providers are configured (no secrets)
     # Engine is created at import; warm the Chroma collections (best-effort).
     try:
         bootstrap_collections()
@@ -84,12 +89,15 @@ def create_app() -> FastAPI:
     app.include_router(symptoms.router, prefix=settings.API_PREFIX)
     app.include_router(reports.router, prefix=settings.API_PREFIX)
     app.include_router(intake.router, prefix=settings.API_PREFIX)
+    app.include_router(chat.router, prefix=settings.API_PREFIX)
     app.include_router(entries.router, prefix=settings.API_PREFIX)
     app.include_router(outputs.router, prefix=settings.API_PREFIX)
     app.include_router(timeline.router, prefix=settings.API_PREFIX)
     app.include_router(alerts.router, prefix=settings.API_PREFIX)
+    app.include_router(actions.router, prefix=settings.API_PREFIX)
     app.include_router(doctor_access.router, prefix=settings.API_PREFIX)
     app.include_router(shared.router, prefix=settings.API_PREFIX)
+    app.include_router(visits.router, prefix=settings.API_PREFIX)
     return app
 
 

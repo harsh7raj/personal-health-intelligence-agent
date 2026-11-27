@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "TSH was 7.2 µIU/mL (flagged high) on the 2025-11-23 thyroid panel, then 2.1 on 2026-03-23 and 1.9 on 2026-07-31. Free T4 moved from 0.8 to 1.3 and then 1.4 ng/dL over the same reports, and both latest values were within the reference ranges.",
+   "An entry on 2026-10-15 noted taking a thyroid tablet and a calcium tablet together at 7. This new entry also lists a thyroid tablet along with shelcal.",
+   "Headache and knee pain each have only 1 logged episode, and weight is stable at about 57.7."
+  ]
+ }
+}

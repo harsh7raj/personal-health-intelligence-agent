@@ -2,7 +2,7 @@
 Reads the same assemble_state() as snapshot/story, plus the narrative from build_story(),
 so the document leads with framing and stays consistent with the rest of the app."""
 
-from datetime import datetime, timezone
+from datetime import datetime
 from io import BytesIO
 
 from sqlalchemy import func, select
@@ -21,10 +21,12 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from app.core import clock
 from app.models.clinical import Medication, VitalReading
 from app.models.intelligence import Alert
 from app.models.records import Entry
 from app.schemas.health_state import PatientHealthState
+from app.services.problems import episode_entries, names_for
 from app.services.state_assembler import assemble_state
 from app.services.story import build_story
 
@@ -46,14 +48,15 @@ _ITALIC = ParagraphStyle("phiaItalic", parent=_styles["Italic"], fontSize=9, tex
 
 
 def _earliest(db: Session, patient_id: int) -> datetime | None:
-    e = db.scalar(select(func.min(Entry.created_at)).where(Entry.patient_id == patient_id))
+    e = db.scalar(select(func.min(Entry.occurred_at)).where(Entry.patient_id == patient_id))
     v = db.scalar(select(func.min(VitalReading.recorded_at)).where(VitalReading.patient_id == patient_id))
     dates = [d for d in (e, v) if d is not None]
     return min(dates) if dates else None
 
 
 def _fmt(d: datetime) -> str:
-    return d.strftime("%b %-d, %Y")
+    # "%-d" (no zero padding) is Unix-only and raises on Windows; build it portably.
+    return f"{d.strftime('%b')} {d.day}, {d.year}"
 
 
 def _trend_color(trend: str | None):
@@ -119,17 +122,12 @@ def _reason_for_review(state: PatientHealthState) -> str:
     return "Review prompted by " + ", ".join(seen[:3]) + "."
 
 
-def _problem_pattern(db: Session, patient_id: int, name: str) -> str | None:
+def _problem_pattern(
+    db: Session, patient_id: int, name: str, attributes: dict | None = None
+) -> str | None:
     """Derive episode frequency/spacing from the patient's symptom entries (no fabrication)."""
-    rows = db.scalars(
-        select(Entry).where(Entry.patient_id == patient_id, Entry.type == "symptom")
-    ).all()
-    norm = name.strip().lower()
-    dates = sorted(
-        e.created_at
-        for e in rows
-        if e.created_at and str((e.structured or {}).get("name", "")).strip().lower() == norm
-    )
+    entries = episode_entries(db, patient_id, names_for(name, attributes))
+    dates = sorted(e.occurred_at for e in entries if e.occurred_at)
     if len(dates) < 2:
         return None
     n = len(dates)
@@ -146,7 +144,7 @@ def build_pdf(db: Session, patient_id: int) -> bytes:
     state = assemble_state(db, patient_id)
     idn = state.identity
     start = _earliest(db, patient_id)
-    end = datetime.now(timezone.utc)
+    end = clock.now()
     date_range = f"Summary covering {_fmt(start)} – {_fmt(end)}" if start else f"Generated {_fmt(end)}"
 
     buf = BytesIO()
@@ -197,7 +195,7 @@ def build_pdf(db: Session, patient_id: int) -> bytes:
             e.append(Paragraph(
                 f'<b>{p.name}</b> &nbsp;—&nbsp; {p.severity or "unspecified severity"} '
                 f'&nbsp;·&nbsp; <font color="{hexc}"><b>{p.trend or "stable"}</b></font>', _BODY))
-            detail = _problem_pattern(db, patient_id, p.name) or p.frequency
+            detail = _problem_pattern(db, patient_id, p.name, p.attributes) or p.frequency
             if detail:
                 e.append(Paragraph(detail, _ITALIC))
             e.append(Spacer(1, 6))

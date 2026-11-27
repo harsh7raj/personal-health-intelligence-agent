@@ -5,12 +5,17 @@ import LoginPage from "@/pages/LoginPage"
 import RegisterPage from "@/pages/RegisterPage"
 import OnboardingPage from "@/pages/OnboardingPage"
 import DashboardPage from "@/pages/DashboardPage"
-import LogPage from "@/pages/LogPage"
+import AssistantPage from "@/pages/AssistantPage"
 import VitalsPage from "@/pages/VitalsPage"
 import StoryPage from "@/pages/StoryPage"
 import SharePage from "@/pages/SharePage"
 import MedicationsPage from "@/pages/MedicationsPage"
 import ReportsPage from "@/pages/ReportsPage"
+import ReportPage from "@/pages/ReportPage"
+import VisitsPage from "@/pages/VisitsPage"
+import NewVisitPage from "@/pages/NewVisitPage"
+import VisitPage from "@/pages/VisitPage"
+import BriefPage from "@/pages/BriefPage"
 import DoctorViewPage from "@/pages/DoctorViewPage"
 
 function ProtectedLayout() {
@@ -33,12 +38,17 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedLayout />,
     children: [
-      { path: "/", element: <LogPage /> },
+      { path: "/", element: <AssistantPage /> },
       { path: "/dashboard", element: <DashboardPage /> },
       { path: "/vitals", element: <VitalsPage /> },
       { path: "/story", element: <StoryPage /> },
       { path: "/medications", element: <MedicationsPage /> },
       { path: "/reports", element: <ReportsPage /> },
+      { path: "/reports/:rid", element: <ReportPage /> },
+      { path: "/visits", element: <VisitsPage /> },
+      { path: "/visits/new", element: <NewVisitPage /> },
+      { path: "/visits/brief", element: <BriefPage /> },
+      { path: "/visits/:vid", element: <VisitPage /> },
       { path: "/share", element: <SharePage /> },
     ],
   },

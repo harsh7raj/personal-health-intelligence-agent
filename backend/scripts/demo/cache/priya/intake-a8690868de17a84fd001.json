@@ -1,0 +1,19 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "medication",
+  "name": "thyroid tablet",
+  "attributes": {
+   "taken_with": "calcium tablet",
+   "calcium_tablet_status": "new",
+   "time_taken": "7",
+   "onset": "at 7"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [],
+  "other_symptoms": []
+ }
+}
