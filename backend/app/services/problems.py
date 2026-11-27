@@ -95,7 +95,6 @@ def upsert_problem_from_symptom(db: Session, patient_id: int, new_entry: dict) -
         existing.last_seen = max(existing.last_seen, when) if existing.last_seen else when
         existing.first_seen = min(existing.first_seen, when) if existing.first_seen else when
         existing.frequency = f"{count} episodes"
-        existing.trend = "increasing" if count >= 3 else "stable"
         if severity:
             existing.severity = severity
         return existing
@@ -114,6 +113,42 @@ def upsert_problem_from_symptom(db: Session, patient_id: int, new_entry: dict) -
     _remember_alias(prob, reported)
     db.add(prob)
     return prob
+
+
+RECENT_DAYS = 30
+PRIOR_DAYS = 90  # the comparison window is 30-90 days ago
+
+
+def problem_trend(times: list[datetime], now: datetime) -> str | None:
+    """Frequency trend (memory.md D18): episodes in the last 30 days vs the per-30-day rate
+    in the 60 days before. Needs a difference of at least one episode a month to move, so
+    small counts don't flap. None until there are two episodes to compare."""
+    if len(times) < 2:
+        return None
+    recent_start = now - timedelta(days=RECENT_DAYS)
+    prior_start = now - timedelta(days=PRIOR_DAYS)
+    recent = sum(1 for t in times if recent_start < t <= now)
+    prior_rate = sum(1 for t in times if prior_start < t <= recent_start) / (
+        (PRIOR_DAYS - RECENT_DAYS) / RECENT_DAYS
+    )
+    if recent - prior_rate >= 1:
+        return "increasing"
+    if prior_rate - recent >= 1:
+        return "decreasing"
+    return "stable"
+
+
+def refresh_problem_trends(db: Session, patient_id: int) -> None:
+    """Recompute trends for active problems that have symptom episodes, so a trend also
+    comes back down when episodes stop. Vitals-based or managed problems without
+    episodes keep the trend they have."""
+    now = clock.now()
+    for p in db.scalars(
+        select(Problem).where(Problem.patient_id == patient_id, Problem.status.in_(_ACTIVE))
+    ).all():
+        times = [e.occurred_at for e in entries_for_problem(db, patient_id, p)]
+        if times:
+            p.trend = problem_trend(times, now)
 
 
 def auto_resolve(db: Session, patient_id: int) -> list[str]:

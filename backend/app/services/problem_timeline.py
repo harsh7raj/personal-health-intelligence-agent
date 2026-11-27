@@ -104,20 +104,8 @@ def build_problem_timeline(
             }
         )
 
-    # Derived trend-change marker: the upsert rule flips trend → 'increasing' at the
-    # 3rd episode. Surface that same deterministic moment (no new logic, no guessing).
-    if len(entries) >= 3:
-        third = entries[2]
-        points.append(
-            {
-                "date": third.occurred_at,
-                "kind": "trend_change",
-                "label": "Pattern became recurrent (3rd episode → increasing)",
-                "detail": None,
-                "severity": None,
-                "entry_id": None,
-            }
-        )
+    # (No dated "trend changed" marker: the trend is a rolling 30-day vs 30-90-day
+    # frequency comparison, shown in the header, not a moment in time.)
 
     # first_seen milestone — only if nothing already anchors the start (e.g. a
     # managed problem with no symptom entries, like vitamin D deficiency).

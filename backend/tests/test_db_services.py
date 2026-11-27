@@ -54,7 +54,7 @@ def test_problem_increment_and_autoresolve(db):
     db.flush()
     assert p3.id == p1.id
     assert p3.attributes["episode_count"] == 3
-    assert p3.trend == "increasing"
+    assert p3.frequency == "3 episodes"  # trend is frequency-based now (test_problem_trend.py)
 
     p3.last_seen = datetime.now(timezone.utc) - timedelta(days=120)
     db.flush()

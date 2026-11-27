@@ -3,7 +3,7 @@ export type Tone = "up" | "down" | "flat" | "danger"
 
 export function trendTone(t?: string | null): Tone {
   if (t === "rising" || t === "increasing") return "up"
-  if (t === "falling") return "down"
+  if (t === "falling" || t === "decreasing") return "down"
   return "flat"
 }
 

@@ -4,7 +4,11 @@ from app.services.alerts import create_alerts_for_readings
 from app.services.clusters import update_clusters
 from app.services.missing_info import check_missing_info, suggested_actions
 from app.services.observations import generate_observations
-from app.services.problems import auto_resolve, upsert_problem_from_symptom
+from app.services.problems import (
+    auto_resolve,
+    refresh_problem_trends,
+    upsert_problem_from_symptom,
+)
 from app.services.vitals_trend import record_vital_and_recompute
 
 
@@ -31,6 +35,7 @@ def reasoning_node(state: GraphState) -> dict:
             update_clusters(db, pid, ne)
             summary["problem"] = prob.name
 
+        refresh_problem_trends(db, pid)
         summary["resolved"] = auto_resolve(db, pid)
         missing = check_missing_info(db, pid)
         summary["missing_info"] = missing
