@@ -55,6 +55,26 @@ def _stub_parse(text: str) -> dict:
             "value": None, "unit": None, "complete": True, "clarifying_question": None}
 
 
+class _BlockedLLMClient:
+    """Any attempt to build a real LLM client in tests fails loudly (no network)."""
+
+    def __init__(self, *_a, **_kw):
+        raise RuntimeError("Tests must not call a real LLM; stub it instead.")
+
+
+@pytest.fixture(autouse=True)
+def _no_external_calls(monkeypatch):
+    """Keep the whole suite offline: no LLM, no RxNav, no DDInter download."""
+    import app.core.llm as llm
+
+    llm.groq_client.cache_clear()
+    monkeypatch.setattr(llm, "OpenAI", _BlockedLLMClient)
+    # RxNav lookups degrade to the offline alias map / lowercased name.
+    monkeypatch.setattr("app.services.rxnorm._get_json", lambda _url: None)
+    yield
+    llm.groq_client.cache_clear()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _setup_test_db():
     admin = create_engine(ADMIN_URL, isolation_level="AUTOCOMMIT")
@@ -104,7 +124,10 @@ def client(monkeypatch):
     monkeypatch.setattr("app.graph.nodes.intake.parse_entry", _stub_parse)
 
     import app.main as main_mod
+    import scripts.import_ddinter as ddinter
 
     monkeypatch.setattr(main_mod, "bootstrap_collections", lambda: [])
+    # App startup would otherwise download DDInter (+ RxNav lookups) into phia_test.
+    monkeypatch.setattr(ddinter, "bootstrap_if_empty", lambda: 0)
     with TestClient(main_mod.app) as c:
         yield c
