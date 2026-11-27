@@ -1,12 +1,13 @@
 """Vital reading extraction + rolling-average trend (decision D1)."""
 
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from statistics import mean
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import clock
 from app.models.clinical import VitalReading, VitalSummary
 
 # Lab test series reuse the SAME vital_readings/vital_summary tables and the SAME
@@ -142,7 +143,7 @@ def record_vital_and_recompute(
     db: Session, patient_id: int, new_entry: dict
 ) -> list[tuple[str, float, str | None]]:
     readings = extract_readings(new_entry)
-    now = datetime.now(timezone.utc)
+    now = clock.now()
     for vt, val, unit in readings:
         db.add(
             VitalReading(

@@ -19,6 +19,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core import clock
 from app.db.base import Base
 from app.models.mixins import CreatedAtMixin, TimestampMixin
 
@@ -82,7 +83,7 @@ class DoseLog(CreatedAtMixin, Base):
     scheduled_date: Mapped[date] = mapped_column(Date, nullable=False)
     scheduled_time: Mapped[str] = mapped_column(String(5), nullable=False)  # "HH:MM"
     taken_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True), default=clock.now, server_default=func.now(), nullable=False
     )
 
 

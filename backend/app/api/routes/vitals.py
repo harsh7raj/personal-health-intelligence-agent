@@ -1,9 +1,9 @@
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import clock
 from app.api.deps import DbSession, OwnedPatient
 from app.models.clinical import VitalReading, VitalSummary
 from app.schemas.clinical_io import VitalCreate, VitalOut
@@ -33,7 +33,7 @@ def create_vital(
 ) -> VitalReading:
     data = payload.model_dump()
     if data.get("recorded_at") is None:
-        data["recorded_at"] = datetime.now(timezone.utc)
+        data["recorded_at"] = clock.now()
     vital = VitalReading(patient_id=patient.id, **data)
     db.add(vital)
     db.commit()

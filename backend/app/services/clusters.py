@@ -1,10 +1,11 @@
 """Symptom co-occurrence clustering (OQ5: within CLUSTER_WINDOW_HOURS, min 2 distinct)."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import clock
 from app.core.config import get_settings
 from app.models.clinical import SymptomCluster
 from app.models.records import Entry
@@ -17,7 +18,7 @@ def _norm(name: str | None) -> str:
 
 
 def update_clusters(db: Session, patient_id: int, new_entry: dict) -> SymptomCluster | None:
-    window = datetime.now(timezone.utc) - timedelta(hours=settings.CLUSTER_WINDOW_HOURS)
+    window = clock.now() - timedelta(hours=settings.CLUSTER_WINDOW_HOURS)
     rows = db.scalars(
         select(Entry).where(
             Entry.patient_id == patient_id,
@@ -33,7 +34,7 @@ def update_clusters(db: Session, patient_id: int, new_entry: dict) -> SymptomClu
     if len(names) < 2:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = clock.now()
     for c in db.scalars(
         select(SymptomCluster).where(SymptomCluster.patient_id == patient_id)
     ).all():

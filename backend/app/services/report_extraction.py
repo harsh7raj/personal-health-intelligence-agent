@@ -15,6 +15,7 @@ from pathlib import Path
 
 from sqlalchemy import func, select
 
+from app.core import clock
 from app.core.llm import is_available, llm_json
 from app.db.session import SessionLocal
 from app.models.clinical import VitalReading, VitalSummary
@@ -271,7 +272,7 @@ def _report_timestamp(report: Report) -> datetime:
         return datetime.combine(report.test_date, time.min, tzinfo=timezone.utc)
     if report.created_at:
         return report.created_at
-    return datetime.now(timezone.utc)
+    return clock.now()
 
 
 def _lab_trends(db, patient_id: int, values: list[dict]) -> list[dict]:

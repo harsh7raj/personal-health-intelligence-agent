@@ -1,7 +1,8 @@
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 from sqlalchemy import select
 
+from app.core import clock
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.graph.state import GraphState
@@ -83,7 +84,7 @@ def memory_node(state: GraphState) -> dict:
                 Medication.patient_id == pid, Medication.active.is_(True)
             )
         ).all()
-        cutoff = datetime.now(timezone.utc) - timedelta(days=settings.RECENT_WINDOW_DAYS)
+        cutoff = clock.now() - timedelta(days=settings.RECENT_WINDOW_DAYS)
         recent = db.scalars(
             select(Entry)
             .where(Entry.patient_id == pid, Entry.created_at >= cutoff)

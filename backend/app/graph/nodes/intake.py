@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timezone
 
+from app.core import clock
 from app.core.llm import is_available, llm_json
 from app.db.session import SessionLocal
 from app.graph.state import GraphState
@@ -90,7 +90,7 @@ def intake_node(state: GraphState) -> dict:
                 "patient_id": state.patient_id,
                 "entry_id": entry_id,
                 "type": fact["type"],
-                "date": (created or datetime.now(timezone.utc)).isoformat(),
+                "date": (created or clock.now()).isoformat(),
             }
         ],
     )

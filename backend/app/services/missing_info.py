@@ -1,10 +1,11 @@
 """Gap detection (missing info) + derived suggested actions. Deterministic, dedup'd."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import clock
 from app.core.config import get_settings
 from app.models.clinical import VitalReading
 from app.models.intelligence import MissingInformation, SuggestedAction
@@ -36,7 +37,7 @@ def check_missing_info(db: Session, patient_id: int) -> list[str]:
         select(MedicalBackground).where(MedicalBackground.patient_id == patient_id)
     )
     conditions = [str(c).lower() for c in (bg.conditions if bg else [])]
-    now = datetime.now(timezone.utc)
+    now = clock.now()
 
     if any("hypertension" in c or "high blood pressure" in c for c in conditions):
         last_bp = db.scalar(

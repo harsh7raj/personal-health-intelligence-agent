@@ -2,11 +2,12 @@
 /shared views all read from assemble_state() so they can never drift apart."""
 
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import clock
 from app.models.clinical import Problem, SymptomCluster, VitalSummary
 from app.models.intelligence import MissingInformation, Observation, SuggestedAction
 from app.models.patient import MedicalBackground, Patient
@@ -178,7 +179,7 @@ def derive_recent_changes(state: PatientHealthState) -> list[str]:
         if v.trend in ("rising", "falling") and v.delta_pct is not None:
             label = _VITAL_LABEL.get(vt, vt)
             out.append(f"{label} {v.trend} ({v.delta_pct * 100:+.0f}%)")
-    cutoff = datetime.now(timezone.utc) - timedelta(days=14)
+    cutoff = clock.now() - timedelta(days=14)
     for p in state.active_problems:
         if p.last_seen and p.last_seen >= cutoff:
             trend = f" ({p.trend})" if p.trend else ""

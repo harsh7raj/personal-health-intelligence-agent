@@ -1,10 +1,11 @@
 """Active/Resolved problem maintenance from symptom entries (D3 single table)."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import clock
 from app.core.config import get_settings
 from app.models.clinical import Problem
 
@@ -22,7 +23,7 @@ def upsert_problem_from_symptom(db: Session, patient_id: int, new_entry: dict) -
     name = new_entry.get("name") or s.get("name") or "unspecified symptom"
     attrs = s.get("attributes", {}) or {}
     severity = attrs.get("severity")
-    now = datetime.now(timezone.utc)
+    now = clock.now()
     norm = _norm(name)
 
     existing = next(
@@ -64,8 +65,8 @@ def upsert_problem_from_symptom(db: Session, patient_id: int, new_entry: dict) -
 
 
 def auto_resolve(db: Session, patient_id: int) -> list[str]:
-    cutoff = datetime.now(timezone.utc) - timedelta(days=settings.RESOLVE_AFTER_DAYS)
-    now = datetime.now(timezone.utc)
+    cutoff = clock.now() - timedelta(days=settings.RESOLVE_AFTER_DAYS)
+    now = clock.now()
     resolved: list[str] = []
     for p in db.scalars(
         select(Problem).where(

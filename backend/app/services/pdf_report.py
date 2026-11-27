@@ -2,7 +2,7 @@
 Reads the same assemble_state() as snapshot/story, plus the narrative from build_story(),
 so the document leads with framing and stays consistent with the rest of the app."""
 
-from datetime import datetime, timezone
+from datetime import datetime
 from io import BytesIO
 
 from sqlalchemy import func, select
@@ -21,6 +21,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from app.core import clock
 from app.models.clinical import Medication, VitalReading
 from app.models.intelligence import Alert
 from app.models.records import Entry
@@ -147,7 +148,7 @@ def build_pdf(db: Session, patient_id: int) -> bytes:
     state = assemble_state(db, patient_id)
     idn = state.identity
     start = _earliest(db, patient_id)
-    end = datetime.now(timezone.utc)
+    end = clock.now()
     date_range = f"Summary covering {_fmt(start)} – {_fmt(end)}" if start else f"Generated {_fmt(end)}"
 
     buf = BytesIO()
