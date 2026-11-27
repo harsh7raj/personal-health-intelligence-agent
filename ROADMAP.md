@@ -417,8 +417,8 @@ Each check cites its source.
 
 ## Phase 8: Testing and evaluation (~1–2 days)
 
-- [ ] Keep the existing pytest suite green (34 tests, run against the separate `phia_test` database).
-- [ ] Unit tests for:
+- [x] Keep the existing pytest suite green (34 tests, run against the separate `phia_test` database).
+- [x] Unit tests for:
   - the recurrence detector,
   - the onset / backdating parser,
   - symptom name normalization,
@@ -428,15 +428,15 @@ Each check cites its source.
   - the single BP alert,
   - the language guard (blocks diagnoses; allows "you have logged…" and attributed doctor quotes),
   - critical-value rules.
-- [ ] Tests for the chat endpoint, using a stubbed LLM.
-- [ ] **Medication safety tests:**
+- [x] Tests for the chat endpoint, using a stubbed LLM.
+- [x] **Medication safety tests:**
   - the AI never produces an all-clear,
   - a label quote that isn't in the label text is discarded,
   - DDInter always wins over the label and AI levels,
   - a brand → generic match is never used until the user confirms it,
   - missing data gives the exact "no known interaction found" wording.
-- [ ] **LLM eval set** in `tests/eval/golden.yaml`: 30–40 questions across the three patients, covering the assistant, the report explainer, and medicine questions. Each lists facts the reply must contain (dates, values, quotes) and things it must not say. Run it before every demo and put the pass rate in the report.
-- [ ] **Safety tests:**
+- [x] **LLM eval set** in `tests/eval/golden.yaml` *(33 cases, `python -m scripts.eval_golden`: 33/33 on 2026-11-28)*: 30–40 questions across the three patients, covering the assistant, the report explainer, and medicine questions. Each lists facts the reply must contain (dates, values, quotes) and things it must not say. Run it before every demo and put the pass rate in the report.
+- [x] **Safety tests:**
   - every red-flag input escalates,
   - every critical report value shows the banner,
   - no reply cites an entry that doesn't exist,
@@ -446,8 +446,8 @@ Each check cites its source.
 
 ## Phase 9: Docs, report, and viva prep (~1–2 days)
 
-- [ ] README: setup steps, LiteLLM and openFDA environment variables, demo accounts, and the reset command.
-- [ ] `memory.md`: log the new decisions (D15 onward):
+- [x] README: setup steps, LiteLLM and openFDA environment variables, demo accounts, and the reset command.
+- [x] `memory.md`: log the new decisions (D15 onward):
   - LiteLLM routing,
   - `occurred_at` and the clock,
   - the assistant design,
@@ -455,12 +455,12 @@ Each check cites its source.
   - the recurrence detector,
   - the report explainer,
   - the three-level medication rule and its data sources.
-- [ ] Architecture diagram: add the router and assistant nodes, the visit pipeline, and the medication safety sources.
-- [ ] Credit DDInter 2.0 and openFDA in the app footer, the README, and the report.
-- [ ] Project report:
+- [x] Architecture diagram: add the router and assistant nodes, the visit pipeline, and the medication safety sources.
+- [x] Credit DDInter 2.0 and openFDA in the app footer, the README, and the report.
+- [x] Project report: *(material and numbers in `Docs/REPORT_NOTES.md`; the owner retakes the screenshots and writes it up)*
   - replace the screenshots (the current ones show the `None` bug and the offline story),
   - add sections on the assistant, visit recaps, the report explainer, medication safety, evaluation results, cost per interaction, and limitations.
-- [ ] Viva prep: have short answers ready for these questions:
+- [x] Viva prep: have short answers ready for these questions: *(`Docs/VIVA.md`)*
   - "Is this diagnosing?"
   - "How do you stop hallucinations?"
   - "What if the AI is wrong?"

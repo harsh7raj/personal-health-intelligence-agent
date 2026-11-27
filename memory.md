@@ -385,6 +385,24 @@ the stored timing / side-effect / record findings (`medication_findings`, mentio
 never as causes) and the latest 2 reports (so it never claims a test is missing). The prescriber exception in the
 guard also covers "Dr. X, who prescribed" and "which Dr. X prescribed".
 
+### D39 — Evaluation and the safety fixes it forced
+`tests/test_safety.py` (offline): 14 red-flag messages escalate with no model call, ordinary ones don't; every
+critical value leads the explanation; invented citations, diagnoses, all-clears and "stop taking" are replaced;
+the golden file is well-formed. `tests/eval/golden.yaml` + `scripts/eval_golden.py` (real models): 33 cases
+with must / must-not regexes, required evidence kinds and age; the runner removes what each case logs and resets
+the demo patients after. Fixes it forced: red flags never wait for a clarifying question (`should_clarify`); new
+red-flag rule for chest pain with warning signs (crushing, arm/jaw, sweating, breathlessness, nausea);
+chat replies are rejected for all-clear or stop wording (`_ALL_CLEAR`); "whether you have X", "not a
+diagnosis", "can't diagnose" are not diagnoses; glucose questions phrased as "hypoglycemia"/"lows" pull the
+readings, and the model may not claim the record lacks something; intake asks a clarifying question only when
+it can't tell what is being logged. Final run 33/33.
+
+### D40 — Docs (Phase 9)
+README rewritten for v2 (features, ground rules, mermaid architecture, env vars, demo accounts, reset and eval
+commands, credits). Credits footer in the app (DDInter CC BY-NC-SA, openFDA notice, NLM). `Docs/VIVA.md`
+(short answers) and `Docs/REPORT_NOTES.md` (sections, eval result, measured cost per interaction, limitations,
+screenshots to retake). UI overhaul (Phase 6) skipped by the owner's call: the app works as is.
+
 ---
 
 ## 3. PatientHealthState (Pydantic, in-memory shared state)
@@ -621,6 +639,13 @@ pytest suite vs `phia_test` (D11), non-diagnostic guard + audit (D12), loose-end
 ---
 
 ## 9. Work Log (newest first)
+
+- **2026-11-28 (cont. 6)** — **v2 Phases 8 and 9** (D39, D40). Safety sweep + 33-case golden eval with real models.
+  The eval found two real safety bugs (a self-harm message held back by a clarifying question; chest pain with arm
+  numbness not escalating), one factual error (claiming no low readings), and guard false positives; all fixed;
+  final run 33/33. Docs: README, credits footer, viva answers, report material with measured costs. Phase 6 (UI)
+  skipped by the owner. **Left for the owner:** rehearse the demo 3 times; retake screenshots; doctor review of
+  critical thresholds and helpline numbers; push to GitHub (as harsh7raj) when ready.
 
 - **2026-11-28 (cont. 5)** — **v2 Phase 7: Priya and Ramesh + DEMO_SCRIPT.md** (D38). Owner asked for speed:
   full checks once per phase, one commit per phase, live checks only for demo moments. Live with real Sonnet:

@@ -56,6 +56,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
       <main className="flex-1 bg-background">
         <div className="mx-auto max-w-5xl px-8 py-8">{children}</div>
+        <footer className="mx-auto max-w-5xl px-8 pb-6 text-[11px] text-muted-foreground print:hidden">
+          Not medical advice: observations from your own records. Sources: drug interactions from{" "}
+          <a className="underline" href="https://ddinter2.scbdd.com/" target="_blank" rel="noreferrer">DDInter 2.0</a> (CC BY-NC-SA 4.0);
+          official labels from{" "}
+          <a className="underline" href="https://open.fda.gov/" target="_blank" rel="noreferrer">openFDA</a>
+          {" "}(not for making medical decisions on its own); medicine names and classes from RxNorm / RxClass and test
+          information from MedlinePlus (U.S. National Library of Medicine).
+        </footer>
       </main>
     </div>
   )

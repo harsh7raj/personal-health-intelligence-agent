@@ -1,108 +1,133 @@
 # Personal Health Intelligence Agent
 
-A **Health Intelligence Engine** that maintains a *longitudinal* view of a patient's health —
-it **observes and explains** history over months and years, rather than acting as a passive
-health record. Every new input (symptom, vital, medication, lab report) flows through a
-controlled multi-agent pipeline that updates a shared **`PatientHealthState`** and produces
-immediate, human-readable insights, trends, and summaries.
+A personal health assistant with **memory**. You tell it how you feel, log readings, upload lab
+reports and recap doctor visits; it remembers all of it and answers from your own records, with
+dated evidence you can click. It **observes and explains**; it never diagnoses.
 
-> ⚕️ **This is not an AI doctor.** It never diagnoses, predicts, or prescribes. Every AI
-> output is phrased as a data-derived *observation* or *pattern*, never medical advice.
-
-<!-- Live demo:  Frontend → <your-vercel-url>   ·   API → <your-render-url>/api/health -->
+> ⚕️ **This is not an AI doctor.** It never diagnoses, never names a cause, never advises treatment,
+> and never says two medicines are "safe" together. Everything it says points to the record it came from.
 
 ---
 
-## Why
+## What it does (v2)
 
-Most health apps are just data stores — they let you log things but never *reason* about them
-over time. That pushes the burden of continuity onto people:
+- **Assistant with memory.** "Feeling shaky and sweaty, skipped lunch" → it logs it, recalls the three
+  earlier episodes with their dates, the circumstances they share (a skipped meal, the morning dose),
+  that they all began after a dose increase, and quotes what the doctor said at that visit.
+  Red flags (chest pain on exertion, fainting, stroke signs, self-harm, very high BP...) skip the AI and
+  show a fixed escalation with 112 / Tele-MANAS 14416.
+- **Report explainer.** Upload a PDF, a scan or a phone photo of a lab report. Values are compared with
+  the printed range and your previous reports in code; a chat explains it with the glossary and your own
+  history, and helps you write questions for your doctor. Critical values show a "contact your doctor today" banner.
+- **Doctor visit recaps.** Type or say what happened after a visit. It becomes a note with the doctor's
+  words attributed, medicine changes checked against RxNorm (and misheard names flagged), clashes with
+  other doctors' medicines previewed, and, once you confirm, your medicines, reminders and questions update.
+  A **pre-visit brief** per doctor collects what changed since, printable and shareable.
+- **Medication safety, three levels.** **Verified** (DDInter 2.0) → **Official label** (a verbatim
+  quote from the FDA label via openFDA, checked by code) → **AI flag** (unverified, switchable). Plus
+  patient-aware checks: duplicates across doctors, dose timing ("4 hours apart"), label warnings that match
+  your record, side effects that started after a dose change. Nothing found reads exactly: *"No known
+  interaction found in our sources. Confirm with your pharmacist."*
+- **Longitudinal record.** Problems with frequency trends, symptom pairs, vitals and lab trends, alerts,
+  missing-information prompts, a health story, a consultation PDF and a read-only doctor link.
 
-- **Patients** have to remember their own timelines, trends, and gaps.
-- **Doctors** spend consultation time reconstructing history ("When did this start? What have
-  you tried?") instead of focusing on the problem.
+## Ground rules
 
-This project solves for **health continuity**: preserving and connecting longitudinal context
-so every encounter starts with rich, integrated information.
-
-## What it does
-
-- **Longitudinal patient state** — active problems, resolved problems, vital summaries,
-  medications, and medical background maintained as one evolving picture.
-- **Trend detection** on vitals (BP, weight, heart rate, glucose, SpO₂) via an explainable
-  rolling-average delta — `rising` / `falling` / `stable`, no black-box ML.
-- **Symptom clustering** — surfaces groups of symptoms that recur together.
-- **AI observations** — data-grounded notes ("fatigue often follows headache episodes"),
-  passed through a language guard so nothing reads as a diagnosis.
-- **Report intelligence** — uploaded lab PDFs are parsed into findings, trends, and an
-  AI summary that the agent can reason over.
-- **Missing-info & next-action cues** — e.g. "no blood pressure reading in 60 days."
-- **Doctor handoff** — a deterministic, ReportLab-generated consultation PDF and shareable
-  read-only doctor view.
+Observe, never diagnose · code finds the pattern, the AI only words it · every claim cites its evidence ·
+the doctor's words are labelled as the doctor's · medicines: the AI can raise a concern, never give the
+all-clear · nothing medical is saved without your confirmation · runs locally, and still works if the
+primary model provider is down (Groq fallback).
 
 ## Architecture
 
-A **LangGraph** sequential multi-agent pipeline (deterministic orchestration — the next step
-is fixed by design, not chosen by an LLM at runtime). Four focused agents pass a shared
-`PatientHealthState` between them:
+```mermaid
+flowchart LR
+  U[User message] --> R{Router<br/>log / question / both}
+  R -- log --> I[Intake<br/>parse, onset, tags]
+  I --> M[Memory<br/>Postgres + Chroma]
+  R -- question --> M
+  M --> RE[Reasoning<br/>problems, trends,<br/>pairs, alerts]
+  RE --> A[Assistant<br/>evidence pack -> cited reply]
+  M --> A
+  A --> G{Checks<br/>red flags first,<br/>cited ids exist,<br/>language guard,<br/>no all-clear}
+  G --> OUT[Reply with date chips]
 
-| Agent | Single responsibility |
-|-------|-----------------------|
-| **Intake** | Parse free-text / uploads into structured, normalized entries |
-| **Memory** | Retrieve only the relevant history (Postgres facts + Chroma semantic search) |
-| **Reasoning** | Update the state — detect trends, cluster symptoms, form observations |
-| **Response** | Format outputs — health snapshot, narrative story, consultation PDF |
+  subgraph Sources
+    DD[(DDInter 2.0)]
+    FDA[(openFDA labels)]
+    RXN[(RxNorm / RxClass)]
+  end
+  A -. med_check / side effects .-> MS[Medication safety<br/>3 levels + patient-aware]
+  MS --> DD & FDA & RXN
 
-Narrow responsibilities keep each part testable and reduce hallucination.
+  V[Visit recap<br/>typed or Whisper] --> VS[Structure -> check names ->
+  preview clashes -> confirm] --> MS
+  RP[Report PDF / photo] --> X[Extract text or vision] --> LV[Lab values in code<br/>ranges, flags, critical] --> EX[Report explainer]
+```
+
+The pipeline is a **LangGraph** graph with fixed edges (the next step is chosen by code, not by an LLM).
+Every LLM call goes through `backend/app/core/llm.py`: a LiteLLM proxy first (Claude Haiku for small
+jobs, Sonnet for anything a person reads, Sonnet vision for report photos), Groq on any failure
+(`openai/gpt-oss-120b`, a Llama 4 vision model, Whisper for audio). Design decisions are logged in
+[memory.md](memory.md) (D1–D38); the plan is in [ROADMAP.md](ROADMAP.md).
 
 ## Tech stack
 
-**Backend** — Python 3.11 · FastAPI · LangGraph · Pydantic v2 · PostgreSQL (SQLAlchemy 2 +
-Alembic) · ChromaDB (local `all-MiniLM-L6-v2` embeddings) · Claude Haiku/Sonnet via a LiteLLM
-proxy, with a Groq fallback (one entry point: `app/core/llm.py`) ·
-JWT auth · ReportLab (PDF)
-
-**Frontend** — React 19 · Vite · TypeScript · Tailwind CSS · TanStack Query · axios ·
-React Router · Recharts
-
-**Infra** — Postgres via docker-compose (or a portable install) · embedded Chroma · `uv` for backend packaging
-
-## Repository layout
-
-```
-backend/     FastAPI app, LangGraph pipeline, models, migrations, seed scripts
-frontend/    React + Vite single-page app
-Docs/        Design document (master spec + architecture diagram)
-DEPLOY.md    Free-tier deployment walkthrough (Vercel + Render + Neon)
-```
+**Backend:** Python 3.11 · FastAPI · LangGraph · Pydantic v2 · PostgreSQL (SQLAlchemy 2 + Alembic) ·
+ChromaDB (embedded, local `all-MiniLM-L6-v2` embeddings) · OpenAI-compatible clients for LiteLLM and Groq ·
+ReportLab · pypdf + pypdfium2 · JWT auth.
+**Frontend:** React 19 · Vite · TypeScript · Tailwind CSS · TanStack Query · React Router · Recharts.
 
 ## Run it locally
 
-**Prerequisites:** Python 3.11, [`uv`](https://docs.astral.sh/uv/), Node 20+, and Postgres 16
-(Docker, or the portable no-admin install below). Chroma runs embedded inside the backend.
-LLM keys are optional: without them the app runs with offline fallbacks (see `backend/.env.example`).
-
-**One command** (from `backend/`):
+**Prerequisites:** Python 3.11, [`uv`](https://docs.astral.sh/uv/), Node 20+, Postgres 16 (Docker, or the
+portable no-admin install below).
 
 ```bash
-cp .env.example .env            # PowerShell: Copy-Item .env.example .env
-uv run python -m scripts.dev
+cd backend
+cp .env.example .env            # PowerShell: Copy-Item .env.example .env, then fill in the keys
+uv run python -m scripts.dev    # Postgres, migrations, demo patients, API :8001 and web :5173
 ```
 
-It starts Postgres if needed (Docker, or `LOCAL_PG_HOME` below), creates the database, applies
-migrations, seeds the demo patient if missing, then serves:
-- API: http://localhost:8001 (health check at `/api/health`)
-- Web app: http://localhost:5173 (the Vite proxy sends `/api` to port 8001)
+Ctrl+C stops both servers. `--reload` restarts the API on code changes.
 
-Ctrl+C stops both servers; Postgres keeps running. Add `--reload` to restart the API on code changes.
+### Environment (`backend/.env`, see `.env.example`)
 
-**Demo login:** `demo@phia.health` / `demo-pass-123`
+| Variable | What it's for |
+|---|---|
+| `LLM_BASE_URL`, `LLM_API_KEY` | The LiteLLM proxy (primary). List its models: `uv run python -m scripts.llm_smoke_test --list-models` |
+| `MODEL_FAST`, `MODEL_SMART`, `MODEL_VISION` | Model names on the proxy (Haiku / Sonnet / Sonnet) |
+| `FALLBACK_API_KEY` (or `GROQ_API_KEY`) | Groq: fallback for every task, plus Whisper speech-to-text |
+| `FALLBACK_MODEL`, `FALLBACK_VISION_MODEL`, `STT_MODEL` | The Groq models |
+| `OPENFDA_API_KEY` | Optional: higher openFDA rate limits |
+| `MED_AI_FLAGS_ENABLED` | Level 3 "AI flag (unverified)" interaction findings; off by default |
+| `LLM_USAGE_LOG` | One JSON line per call (task, model, tokens, cost); never prompt text |
+| `LOCAL_PG_HOME` | Portable Postgres folder on Windows (see below) |
+
+Without any keys the app still runs with deterministic fallbacks (fact lists instead of AI wording).
+
+### Demo patients
+
+| Patient | Login | Shows |
+|---|---|---|
+| Harsh Iyer, 52 | `harsh@demo.phia` / `demo-harsh-123` | recurring low-sugar pattern, quoting the doctor, the visit loop |
+| Priya Nair, 31 | `priya@demo.phia` / `demo-priya-123` | report explainer (phone photo), a clash between two doctors |
+| Ramesh Kulkarni, 63 | `ramesh@demo.phia` / `demo-ramesh-123` | a side effect from the official label, red-flag escalation |
+
+All demo data is fictional and dated relative to today. Reset (stop the app first; offline and free after
+the first run, from the committed AI cache):
+
+```bash
+uv run python -m scripts.demo reset            # all three, or: reset priya
+```
+
+Run it once online the day before a demo: the last step caches the FDA labels and drug classes. The
+walkthrough is in [DEMO_SCRIPT.md](DEMO_SCRIPT.md).
 
 ### Windows without Docker (portable Postgres, no admin rights)
 
 1. Download the PostgreSQL 16 "binaries" zip for Windows x64 from
-   https://www.enterprisedb.com/download-postgresql-binaries and unzip it to
-   `%LOCALAPPDATA%\phia-postgres` (you only need `pgsql\bin`, `lib` and `share`; skip pgAdmin).
+   https://www.enterprisedb.com/download-postgresql-binaries and unzip it to `%LOCALAPPDATA%\phia-postgres`.
 2. Create the data folder once (user and password `phia`):
    ```powershell
    $pg = "$env:LOCALAPPDATA\phia-postgres"
@@ -111,40 +136,28 @@ Ctrl+C stops both servers; Postgres keeps running. Add `--reload` to restart the
    Remove-Item "$pg\pw.tmp"
    ```
 3. In `backend/.env`, set `LOCAL_PG_HOME=C:\Users\<you>\AppData\Local\phia-postgres`.
-   `scripts.dev` then starts it for you; `uv run python -m scripts.dev --stop-db` stops it.
 
-### Step by step (what the one command does)
-
-```bash
-cd backend
-docker compose up -d                    # or start the portable Postgres
-uv run alembic upgrade head
-uv run python -m scripts.seed_demo      # with the API stopped: embedded Chroma allows one writer
-uv run uvicorn app.main:app --port 8001
-cd ../frontend && npm ci && npm run dev
-```
-
-### Checks
+### Checks and evaluation
 
 ```bash
 cd backend
 uv run ruff check .
-uv run pytest          # needs Postgres; uses a separate phia_test database
+uv run pytest                     # offline: every LLM and external API is stubbed; uses a phia_test database
 uv run alembic check
+uv run python -m scripts.eval_golden   # real models: 33 demo questions, pass rate in tests/eval/results.md
 cd ../frontend && npm run build
 ```
 
-## Deployment
+## Data sources and credits
 
-A complete, beginner-friendly free-tier deploy guide (frontend → Vercel, backend → Render,
-database → Neon) lives in **[DEPLOY.md](./DEPLOY.md)**.
-
-## Status
-
-A B.E. capstone project — functional end to end, but a work in progress, not a finished
-product. Expect ongoing changes and refinements.
+- **DDInter 2.0** (https://ddinter2.scbdd.com/): drug–drug interactions, CC BY-NC-SA 4.0, non-commercial use.
+- **openFDA drug labels** (https://open.fda.gov/): official U.S. label text. openFDA notes its data should not
+  be used to make medical decisions on its own.
+- **RxNorm and RxClass** (U.S. National Library of Medicine): medicine names, ingredients and classes.
+- **MedlinePlus** (U.S. National Library of Medicine): links for lab tests and medicines.
 
 ## Disclaimer
 
-For educational and informational purposes only. It does **not** provide medical advice,
-diagnosis, or treatment. Always consult a qualified healthcare professional.
+A B.E. capstone project, for education only. It does **not** provide medical advice, diagnosis or
+treatment. Always consult a qualified healthcare professional. (`DEPLOY.md` / `render.yaml` describe the
+v1 free-tier deployment and are not maintained for v2, which is a local demo.)
