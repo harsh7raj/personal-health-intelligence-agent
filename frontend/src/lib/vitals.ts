@@ -31,3 +31,15 @@ export function vitalLabel(vitalType: string, sample?: Pick<VitalReading, "attri
 export function vitalUnit(vitalType: string, sample?: Pick<VitalReading, "unit">): string | undefined {
   return sample?.unit ?? LABELS[vitalType]?.unit
 }
+
+/** Y-axis range padded around the data. Recharts starts at 0 by default, which makes
+ *  small real changes (weight 72 -> 70 kg) look flat. */
+export function paddedDomain(values: number[]): [number, number] | ["auto", "auto"] {
+  const v = values.filter((x) => Number.isFinite(x))
+  if (!v.length) return ["auto", "auto"]
+  const min = Math.min(...v)
+  const max = Math.max(...v)
+  const pad = max > min ? (max - min) * 0.2 : Math.max(Math.abs(max) * 0.05, 1)
+  const lo = Math.floor(min - pad)
+  return [min >= 0 && lo < 0 ? 0 : lo, Math.ceil(max + pad)]
+}

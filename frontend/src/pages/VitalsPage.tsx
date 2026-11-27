@@ -14,7 +14,7 @@ import * as ep from "@/lib/endpoints"
 import type { VitalReading, VitalSummary } from "@/lib/endpoints"
 import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
 import { cn } from "@/lib/utils"
-import { vitalLabel, vitalUnit } from "@/lib/vitals"
+import { paddedDomain, vitalLabel, vitalUnit } from "@/lib/vitals"
 
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
@@ -97,7 +97,9 @@ export default function VitalsPage() {
               <LineChart data={bpData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="t" />
-                <YAxis />
+                <YAxis
+                  domain={paddedDomain(bpData.flatMap((d) => [d.systolic, d.diastolic].filter((x): x is number => x != null)))}
+                />
                 <Tooltip />
                 <Legend />
                 <Line type="monotone" dataKey="systolic" stroke="#dc2626" />
@@ -126,7 +128,7 @@ export default function VitalsPage() {
                 <LineChart data={data}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="t" />
-                  <YAxis />
+                  <YAxis domain={paddedDomain(data.map((d) => d.value))} />
                   <Tooltip />
                   <Line type="monotone" dataKey="value" stroke="#16a34a" />
                 </LineChart>
