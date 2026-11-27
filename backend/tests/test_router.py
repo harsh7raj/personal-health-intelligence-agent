@@ -37,9 +37,17 @@ def test_llm_answer_is_used_when_valid_and_ignored_when_not(monkeypatch):
     monkeypatch.setattr(
         router, "llm_json", lambda task, system, user, **_kw: {"kind": "both", "question": "ok?"}
     )
-    assert classify_message("anything") == ("both", "ok?")
+    mixed = "Migraine again. Is that normal?"
+    assert classify_message(mixed) == ("both", "ok?")
     monkeypatch.setattr(router, "llm_json", lambda *a, **k: {"kind": "chitchat"})
-    assert classify_message("What did my report say?") == ("question", "What did my report say?")
+    assert classify_message(mixed) == ("both", "Is that normal?")  # invalid -> heuristic
+
+
+def test_clear_cut_messages_skip_the_llm(monkeypatch):
+    monkeypatch.setattr(router, "is_available", lambda: True)
+    monkeypatch.setattr(router, "llm_json", lambda *a, **k: pytest.fail("router LLM not needed"))
+    assert classify_message("headache since morning")[0] == "log"
+    assert classify_message("What did my report say?")[0] == "question"
 
 
 def _auth(client, email: str) -> tuple[dict, int]:

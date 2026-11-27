@@ -113,7 +113,7 @@ def _record_usage(rec: dict[str, Any]) -> None:
 
 def _complete(
     provider: str, model: str, system: str, user: str, *, task: str, temperature: float,
-    as_json: bool,
+    as_json: bool, max_tokens: int | None = None,
 ) -> Any:
     rec: dict[str, Any] = {
         "task": task, "provider": provider, "model": model, "ok": False,
@@ -121,7 +121,9 @@ def _complete(
     }
     started = time.perf_counter()
     try:
-        extra = {"response_format": {"type": "json_object"}} if as_json else {}
+        extra: dict[str, Any] = {"response_format": {"type": "json_object"}} if as_json else {}
+        if max_tokens:
+            extra["max_tokens"] = max_tokens
         raw = _client(provider).chat.completions.with_raw_response.create(
             model=model,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
@@ -161,21 +163,24 @@ def complete_json(
     return _complete(provider, model, system, user, task=task, temperature=temperature, as_json=True)
 
 
-def _route(task: str, system: str, user: str, temperature: float, as_json: bool) -> Any:
+def _route(
+    task: str, system: str, user: str, temperature: float, as_json: bool,
+    max_tokens: int | None = None,
+) -> Any:
     s = get_settings()
     model = model_for(task)  # validates the task name even when only the fallback is set
     last_error: Exception | None = None
     if _primary_ready(s):
         try:
             return _complete(PRIMARY, model, system, user, task=task, temperature=temperature,
-                             as_json=as_json)
+                             as_json=as_json, max_tokens=max_tokens)
         except Exception as exc:  # noqa: BLE001 - any proxy failure falls back
             last_error = exc
             logger.warning("LiteLLM call for %s failed (%s); trying the Groq fallback", task, exc)
     if s.FALLBACK_API_KEY:
         try:
             return _complete(FALLBACK, s.FALLBACK_MODEL, system, user, task=task,
-                             temperature=temperature, as_json=as_json)
+                             temperature=temperature, as_json=as_json, max_tokens=max_tokens)
         except Exception as exc:  # noqa: BLE001
             last_error = exc
             logger.warning("Groq fallback for %s failed (%s)", task, exc)
@@ -188,10 +193,12 @@ def llm_json(task: str, system: str, user: str, *, temperature: float = 0.0) -> 
     return _route(task, system, user, temperature, as_json=True)
 
 
-def llm_text(task: str, system: str, user: str, *, temperature: float = 0.0) -> str:
+def llm_text(
+    task: str, system: str, user: str, *, temperature: float = 0.0, max_tokens: int | None = None
+) -> str:
     """Plain-text completion (same routing, fallback and logging) for prose replies, where a
     JSON wrapper only adds a way to fail (models sometimes answer in prose anyway)."""
-    return _route(task, system, user, temperature, as_json=False)
+    return _route(task, system, user, temperature, as_json=False, max_tokens=max_tokens)
 
 
 def list_models(provider: str = PRIMARY) -> list[str]:

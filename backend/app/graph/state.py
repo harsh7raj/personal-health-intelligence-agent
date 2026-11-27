@@ -29,6 +29,8 @@ class GraphState(BaseModel):
 
     # chat (Phase 2, D31): the assistant reply built by response_node
     chat: bool = False
+    # chat: generate observations after replying (BackgroundTasks), not on the reply's path
+    defer_observations: bool = False
     focus: Optional[dict[str, Any]] = None
     reply: Optional[str] = None
     evidence: Optional[list[dict[str, Any]]] = None

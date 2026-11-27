@@ -42,8 +42,12 @@ def reasoning_node(state: GraphState) -> dict:
         summary["suggested_actions"] = suggested_actions(db, pid, alerts, missing)
         db.commit()
 
-        # Observations read the just-updated state, then persist.
-        summary["observations"] = generate_observations(db, pid, ne, state.context_bundle)
-        db.commit()
+        # Observations read the just-updated state, then persist. In chat they run after the
+        # reply is sent (memory.md D31), so the user isn't waiting on a second Sonnet call.
+        if state.defer_observations:
+            summary["observations"] = []
+        else:
+            summary["observations"] = generate_observations(db, pid, ne, state.context_bundle)
+            db.commit()
 
     return {"reasoning_summary": summary}

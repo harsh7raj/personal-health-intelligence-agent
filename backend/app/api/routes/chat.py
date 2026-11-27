@@ -6,13 +6,15 @@ import logging
 from datetime import datetime
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from app.api.deps import DbSession, OwnedPatient
+from app.db.session import SessionLocal
 from app.graph.graph import graph
 from app.models.records import ChatMessage
+from app.services.observations import generate_observations
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/patients", tags=["chat"])
@@ -56,8 +58,20 @@ def _logged_tag(new_entry: dict | None) -> dict | None:
     }
 
 
+def _observe_later(patient_id: int, new_entry: dict, context_bundle: dict | None) -> None:
+    """Dashboard observations for a chat log, after the reply has gone out."""
+    try:
+        with SessionLocal() as db:
+            generate_observations(db, patient_id, new_entry, context_bundle)
+            db.commit()
+    except Exception:
+        logger.warning("deferred observations failed for patient %s", patient_id, exc_info=True)
+
+
 @router.post("/{patient_id}/chat", response_model=ChatOut)
-def chat(patient: OwnedPatient, payload: ChatIn, db: DbSession) -> ChatOut:
+def chat(
+    patient: OwnedPatient, payload: ChatIn, db: DbSession, background: BackgroundTasks
+) -> ChatOut:
     text, skip_router = payload.message.strip(), False
     last = db.scalar(
         select(ChatMessage).where(ChatMessage.patient_id == patient.id)
@@ -75,7 +89,7 @@ def chat(patient: OwnedPatient, payload: ChatIn, db: DbSession) -> ChatOut:
     try:
         result = graph.invoke({
             "patient_id": patient.id, "raw_input": text, "chat": True,
-            "focus": payload.focus, "skip_router": skip_router,
+            "focus": payload.focus, "skip_router": skip_router, "defer_observations": True,
         })
     except Exception as exc:
         logger.exception("chat pipeline failed for patient %s", patient.id)
@@ -99,6 +113,7 @@ def chat(patient: OwnedPatient, payload: ChatIn, db: DbSession) -> ChatOut:
                                   "generated_by": out.generated_by}.items() if v}
         if logged:
             user_msg.entry_id = logged["entry_id"]
+            background.add_task(_observe_later, patient.id, get("new_entry"), get("context_bundle"))
 
     reply_msg = ChatMessage(patient_id=patient.id, role="assistant", content=out.reply,
                             evidence=out.evidence, meta=meta)

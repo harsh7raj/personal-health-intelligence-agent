@@ -60,7 +60,19 @@ def heuristic_kind(text: str) -> tuple[str, str | None]:
     return "question", asked
 
 
+def _clear_cut(text: str, kind: str) -> bool:
+    """The heuristic is reliable for plain logs (no question signal at all) and for a message
+    that is one question sentence; only mixed or unclear messages need the LLM router."""
+    if kind == "log":
+        return True
+    sentences = [s for s in re.split(r"(?<=[.!?])\s+|\n+", text or "") if s.strip()]
+    return kind == "question" and len(sentences) == 1
+
+
 def classify_message(text: str) -> tuple[str, str | None]:
+    guess = heuristic_kind(text)
+    if _clear_cut(text, guess[0]):
+        return guess  # saves a model call (~1 s) on most messages
     if is_available():
         try:
             res = llm_json("router", _SYSTEM, text)
