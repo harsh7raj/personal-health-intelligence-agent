@@ -143,3 +143,30 @@ def test_every_reading_shown_in_the_pack_is_citable(client, db, llm_on):
             "recorded_at": (datetime.now(timezone.utc) - timedelta(days=60 - i)).isoformat()})
     r = _say(client, h, pid, "How has my blood pressure been?")
     assert r["generated_by"] == "llm" and len(r["evidence"]) == 2
+
+
+def test_chat_observations_run_after_the_reply(client, llm_on, monkeypatch):
+    llm_on(lambda pack: f"Logged [{pack['logged_now']['id']}].")
+    import app.services.observations as obs
+    monkeypatch.setattr(obs, "is_available", lambda: True)
+    monkeypatch.setattr(obs, "llm_json", lambda *a, **k: {"observations": ["Migraine logged twice this week."]})
+    h, pid = _auth(client, "chat-obs@x.com")
+    r = _say(client, h, pid, "bad migraine today")
+    assert r["generated_by"] == "llm"
+    texts = [o["text"] for o in client.get(f"/api/patients/{pid}/observations", headers=h).json()]
+    assert texts == ["Migraine logged twice this week."]  # written by the background task
+
+
+def test_follow_ups_can_cite_evidence_from_earlier_turns(client, llm_on):
+    first: dict = {}
+
+    def reply(pack):
+        if "logged_now" in pack and not first:
+            first["id"] = pack["logged_now"]["id"]
+            return f"Logged [{first['id']}]."
+        return f"Before that, the one on [{first['id']}]."  # an id from the earlier turn
+    llm_on(reply)
+    h, pid = _auth(client, "chat-follow@x.com")
+    _say(client, h, pid, "bad migraine today")
+    r = _say(client, h, pid, "and before that?")
+    assert r["generated_by"] == "llm" and r["evidence"][0]["id"] == first["id"]

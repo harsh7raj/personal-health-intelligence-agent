@@ -165,6 +165,10 @@ def build_pack(
         select(ChatMessage).where(ChatMessage.patient_id == patient_id)
         .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc()).limit(7)
     ).all()
+    for h in history:  # ids cited in earlier turns stay citable in follow-ups
+        for item in h.evidence or []:
+            if isinstance(item, dict) and item.get("id") and item["id"] not in items:
+                keep(item)
     pack["recent_chat"] = [{"role": h.role, "text": h.content[:400]} for h in reversed(history)][:-1]
     return pack, items
 
@@ -242,7 +246,8 @@ def respond(
     if is_available():
         try:
             candidate = llm_text(
-                "assistant", SYSTEM, json.dumps({"user_message": message, "evidence": pack})
+                "assistant", SYSTEM, json.dumps({"user_message": message, "evidence": pack}),
+                max_tokens=600,  # a short reply; also bounds latency and cost
             )
             problem = check_reply(candidate, items)
             if problem:
