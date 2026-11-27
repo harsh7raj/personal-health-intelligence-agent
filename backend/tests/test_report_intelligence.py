@@ -149,3 +149,22 @@ def test_ai_summary_fallback_is_nondiagnostic():
 
 def test_ai_summary_none_when_empty():
     assert generate_report_summary("Other", [], []) is None
+
+
+def test_lab_trends_give_values_and_a_code_direction(db):
+    from app.services.report_extraction import _lab_trends
+
+    user = User(email="trend3@x.com", password_hash="x", role="patient")
+    db.add(user)
+    db.flush()
+    patient = Patient(user_id=user.id, name="T")
+    db.add(patient)
+    db.flush()
+    for rid, (day, v) in enumerate([(date(2026, 4, 12), "8.4"), (date(2026, 7, 11), "7.6"),
+                                    (date(2026, 10, 19), "6.9")], start=1):
+        record_lab_readings_and_recompute(
+            db, patient.id, rid, [{"test_name": "HbA1c", "value": v, "unit": "%"}],
+            datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc))
+    [t] = _lab_trends(db, patient.id, [{"test_name": "HbA1c (Glycated haemoglobin)"}])
+    assert t["trend"] == "falling" and t["change_pct_first_to_latest"] == -17.9
+    assert [x["value"] for x in t["values"]] == [8.4, 7.6, 6.9] and t["since"] == "2026-04-12"

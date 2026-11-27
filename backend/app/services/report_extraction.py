@@ -15,12 +15,12 @@ import logging
 from datetime import date, datetime, time, timezone
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from app.core import clock
 from app.core.llm import is_available, llm_json, llm_vision_json
 from app.db.session import SessionLocal
-from app.models.clinical import VitalReading, VitalSummary
+from app.models.clinical import VitalReading
 from app.models.records import Report
 from app.services import lab_values
 from app.services.language_guard import is_diagnostic
@@ -334,10 +334,14 @@ def _report_timestamp(report: Report) -> datetime:
     return clock.now()
 
 
+TREND_THRESHOLD_PCT = 5.0  # first -> latest change smaller than this reads as "stable"
+
+
 def _lab_trends(db, patient_id: int, values: list[dict]) -> list[dict]:
-    """For each recurring lab test in this report, read back its computed VitalSummary
-    (rolling-average trend) plus how far back the series goes — so the ai_summary can say
-    'trending up since your March panel'. Only tests with >=2 readings are returned."""
+    """For each recurring lab test in this report: its values across reports and a direction
+    computed in code from the first to the latest (D34), so the ai_summary can say "down from
+    8.4 in April". The rolling-average trend used for vitals misreads 2-3 report points as
+    stable, so it isn't used here. Only tests with >=2 readings are returned."""
     trends: list[dict] = []
     seen: set[str] = set()
     for v in values:
@@ -348,33 +352,24 @@ def _lab_trends(db, patient_id: int, values: list[dict]) -> list[dict]:
         if vt in seen:
             continue
         seen.add(vt)
-        summary = db.scalar(
-            select(VitalSummary).where(
-                VitalSummary.patient_id == patient_id,
-                VitalSummary.vital_type == vt,
-            )
-        )
-        n = db.scalar(
-            select(func.count(VitalReading.id)).where(
-                VitalReading.patient_id == patient_id,
-                VitalReading.vital_type == vt,
-            )
-        )
-        if summary is None or (n or 0) < 2:
+        readings = db.scalars(
+            select(VitalReading).where(
+                VitalReading.patient_id == patient_id, VitalReading.vital_type == vt
+            ).order_by(VitalReading.recorded_at)
+        ).all()
+        if len(readings) < 2:
             continue  # need at least two reports to speak of a trend
-        earliest = db.scalar(
-            select(func.min(VitalReading.recorded_at)).where(
-                VitalReading.patient_id == patient_id,
-                VitalReading.vital_type == vt,
-            )
-        )
+        first, latest = readings[0].value, readings[-1].value
+        pct = (latest - first) / first * 100 if first else 0.0
+        trend = "rising" if pct > TREND_THRESHOLD_PCT else "falling" if pct < -TREND_THRESHOLD_PCT else "stable"
         trends.append(
             {
                 "test_name": name,
-                "trend": summary.trend,
-                "delta_pct": round(summary.delta_pct, 3) if summary.delta_pct else None,
-                "n_reports": n,
-                "since": earliest.date().isoformat() if earliest else None,
+                "trend": trend,
+                "change_pct_first_to_latest": round(pct, 1),
+                "values": [{"date": r.recorded_at.date().isoformat(), "value": r.value} for r in readings[-5:]],
+                "n_reports": len(readings),
+                "since": readings[0].recorded_at.date().isoformat(),
             }
         )
     return trends
