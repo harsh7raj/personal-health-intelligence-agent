@@ -17,7 +17,8 @@ from app.data.lab_glossary import mentioned as mentioned_tests
 from app.data.symptom_synonyms import SYNONYMS, canonical_symptom
 from app.models.clinical import Medication, Problem
 from app.models.records import ChatMessage, Report
-from app.services import red_flags, report_explainer, retrieval
+from app.models.drugs import MedCheckRun
+from app.services import med_safety, red_flags, report_explainer, retrieval
 from app.services.language_guard import is_diagnostic
 from app.services.recurrence import detect
 from app.services.vitals_trend import extract_readings
@@ -52,7 +53,27 @@ next steps the record supports: checking and logging a reading, and raising the 
 their doctor. If the pack does not answer a question, say so plainly.
 Write 2 to 6 short sentences in plain language, addressed to the user ("you").
 Return only the reply text, with its [ids].
-""" + report_explainer.FOLLOW_UP_RULES
+""" + report_explainer.FOLLOW_UP_RULES + """
+MEDICINES: speak about medicine safety only from "med_check", "possible_side_effects" or \
+"pinned_finding". Name each finding's level as given (Verified / Official label / AI flag \
+(unverified)) and cite its [id]; quote label text only from its "quote". Never say medicines are \
+safe together or that there is no interaction: when "med_check" has a "message", say exactly that \
+message. Never suggest stopping, skipping or changing a medicine; when there is a concern, add \
+"Don't stop or change any medicine on your own" and suggest asking their pharmacist or doctor."""
+
+_CAN_I_TAKE = re.compile(
+    r"\b(?:can|could|should|may) i (?:take|have|use|start)\s+(?:a |an |some )?(.+?)"
+    r"(?:\s+(?:with|along|alongside|together|while|if|for|now|today)\b|[?.!,]|$)|"
+    r"\bis it (?:ok|okay|fine|safe) to (?:take|have|use)\s+(?:a |an |some )?(.+?)(?:\s+with\b|[?.!,]|$)",
+    re.IGNORECASE,
+)
+
+
+def asked_medicine(message: str) -> str | None:
+    """The medicine in "Can I take X with my medicines?" (or "is it ok to take X?")."""
+    m = _CAN_I_TAKE.search(message or "")
+    name = (m.group(1) or m.group(2)).strip() if m else ""
+    return name if 2 < len(name) <= 60 and not re.search(r"\b(my|medicines?|pills?|tablets?)\b", name, re.I) else None
 
 
 def _mentioned_symptoms(db: Session, patient_id: int, text: str) -> list[str]:
@@ -172,6 +193,23 @@ def build_pack(
         have = {g["test_key"] for g in (pack.get("focused_report") or {}).get("glossary", [])}
         pack["glossary"] = [keep(report_explainer.glossary_item(k)) for k in asked if k not in have][:4]
 
+    # Medicine safety tools (Phase 5, D36): the same three levels as the Medications page.
+    asked = asked_medicine(message)
+    if asked:
+        check = med_safety.check_new_medicine(db, patient_id, asked)
+        pack["med_check"] = {k: check.get(k) for k in ("medicine", "recognized", "assumed", "message")}
+        pack["med_check"]["findings"] = [keep(f) for f in check["findings"][:6]]
+    if (focus or {}).get("type") == "med_finding":
+        run = db.scalar(select(MedCheckRun).where(MedCheckRun.patient_id == patient_id))
+        pinned = next((f for f in ((run.result if run else {}) or {}).get("findings", [])
+                       if f["id"] == focus.get("id")), None)
+        if pinned:
+            pack["pinned_finding"] = keep(pinned)
+    for name in symptoms[:2]:
+        found = med_safety.side_effects_for(db, patient_id, name)
+        if found:
+            pack.setdefault("possible_side_effects", []).extend(keep(f) for f in found[:2])
+
     notes = retrieval.visit_notes(db, patient_id)
     if notes:
         pack["doctor_instructions"] = [keep(n) for n in notes]
@@ -217,6 +255,18 @@ def _fallback(pack: dict, items: dict[str, dict]) -> str:
         lines.append(f"Latest report: {rep['report_type']} on {rep['date']} [{rep['id']}].")
     if pack.get("recurrence"):
         lines.append("These are patterns in your records, not a diagnosis. Worth raising with your doctor.")
+    mc = pack.get("med_check")
+    if mc:
+        if mc.get("assumed"):
+            lines.append(mc["assumed"])
+        for f in mc.get("findings", []):
+            lines.append(f"{f['level_label']}: {f['explanation']} [{f['id']}]")
+        if mc.get("message"):
+            lines.append(mc["message"])
+    for f in [*([pack["pinned_finding"]] if pack.get("pinned_finding") else []), *pack.get("possible_side_effects", [])]:
+        lines.append(f"{f['level_label']}: {f['explanation']} [{f['id']}]")
+    if mc or pack.get("pinned_finding") or pack.get("possible_side_effects"):
+        lines.append(med_safety.DONT_CHANGE)
     if not lines:
         lines.append("I couldn't find anything about that in your records yet.")
     return " ".join(lines)

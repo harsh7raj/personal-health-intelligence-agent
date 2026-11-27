@@ -238,3 +238,37 @@ def test_api_resolve_create_safety_and_check(client, db, monkeypatch):
     out = client.post(f"/api/patients/{pid}/medications/check", json={"name": "Whatever"}, headers=h).json()
     assert out["recognized"] is False and "pharmacist" in out["message"]
     assert date.today()  # keep the import honest
+
+
+def test_assistant_med_check_pinned_finding_and_side_effects(db, no_llm, monkeypatch):
+    import app.services.assistant as assistant
+
+    pid = _patient(db, "msa@x.com")
+    _med(db, pid, "Metformin", ["metformin"])
+    db.add(DrugInteraction(drug_lo="ibuprofen", drug_hi="metformin", name_a="a", name_b="b", level="Moderate"))
+    db.flush()
+    monkeypatch.setattr(ms.rxnorm, "lookup", lambda n: {"status": "found", "ingredients": [n.lower()]})
+    monkeypatch.setattr(assistant, "is_available", lambda: False)
+
+    pack, items = assistant.build_pack(db, pid, message="Can I take ibuprofen with my medicines?", kind="question",
+                                       new_entry=None, context_bundle=None)
+    [f] = pack["med_check"]["findings"]
+    assert f["id"] == "N1" and f["id"] in items and f["severity"] == "Moderate"
+    reply = assistant._fallback(pack, items)
+    assert "Verified" in reply and "[N1]" in reply and ms.DONT_CHANGE in reply and "safe" not in reply.lower()
+
+    # Nothing found: the exact sentence, never an all-clear.
+    pack, items = assistant.build_pack(db, pid, message="can I take paracetamol?", kind="question",
+                                       new_entry=None, context_bundle=None)
+    assert pack["med_check"]["message"] == ms.NO_FINDING and ms.NO_FINDING in assistant._fallback(pack, items)
+
+    # A finding pinned from the Medications page comes from the stored run, by id.
+    stored = ms.latest(db, pid)
+    db.add(Medication(patient_id=pid, name="Ibuprofen", ingredients=["ibuprofen"]))
+    db.flush()
+    stored = ms.latest(db, pid)
+    fid = stored["findings"][0]["id"]
+    pack, items = assistant.build_pack(db, pid, message="what does this mean?", kind="question", new_entry=None,
+                                       context_bundle=None, focus={"type": "med_finding", "id": fid})
+    assert pack["pinned_finding"]["id"] == fid and fid in items
+    assert "Never say medicines are safe together" in assistant.SYSTEM
