@@ -14,3 +14,6 @@ data/ddinter/
 
 # Per-call LLM usage log (tokens + cost; see LLM_USAGE_LOG)
 llm_usage.jsonl
+
+# Demo replay outputs (rebuilt by `python -m scripts.demo reset`)
+scripts/demo/generated/

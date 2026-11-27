@@ -108,16 +108,23 @@ def ensure_database() -> None:
         admin.dispose()
 
 
-def _demo_seeded() -> bool:
+def _user_exists(email: str) -> bool:
     engine = create_engine(get_settings().DATABASE_URL)
     try:
         with engine.connect() as conn:
             row = conn.execute(
-                text("select 1 from users where email = :email"), {"email": DEMO_EMAIL}
+                text("select 1 from users where email = :email"), {"email": email}
             ).first()
             return row is not None
     finally:
         engine.dispose()
+
+
+def _missing_story_patients() -> list[str]:
+    """Story-script demo patients (scripts/demo/patients) not loaded yet."""
+    from scripts.demo.generate import available, load_script
+
+    return [k for k in available() if not _user_exists(load_script(k)["login"]["email"])]
 
 
 def _stop(proc: subprocess.Popen) -> None:
@@ -155,9 +162,13 @@ def main() -> None:
     print("Migrations: alembic upgrade head")
     subprocess.check_call([sys.executable, "-m", "alembic", "upgrade", "head"], cwd=BACKEND)
     # Seed before the API starts: the embedded Chroma store takes one writer at a time.
-    if not _demo_seeded():
+    if not _user_exists(DEMO_EMAIL):
         print("Seeding the demo patient")
         subprocess.check_call([sys.executable, "-m", "scripts.seed_demo"], cwd=BACKEND)
+    missing = _missing_story_patients()
+    if missing:  # replayed from the committed LLM cache: offline and free
+        print(f"Loading demo patients: {', '.join(missing)}")
+        subprocess.check_call([sys.executable, "-m", "scripts.demo", "reset", *missing], cwd=BACKEND)
 
     procs: list[subprocess.Popen] = []
     api_cmd = [sys.executable, "-m", "uvicorn", "app.main:app", "--port", str(API_PORT)]
