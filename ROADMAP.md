@@ -67,9 +67,9 @@ Budget notes are at the end of this file.
 
 - [x] Create a `v2` branch and keep `main` demo-able. *(Local repo: `main` = untouched v1; never pushed.)*
 - [x] Get the current app running locally as a baseline: `docker compose up -d`, migrations, seed. Run the backend on port **8001** (Chroma's container already uses 8000) and the frontend on 5173. *(On the Windows machine: portable Postgres instead of Docker, see README; found and fixed two Windows-only bugs: PDF date format and the DDInter import.)*
-- [ ] Confirm the LiteLLM proxy URL, your key, and the exact model names it exposes (`GET <proxy-url>/v1/models`).
-- [ ] Write `scripts/llm_smoke_test.py`: one JSON-mode call each to Sonnet and Haiku through the proxy. The code uses `response_format={"type": "json_object"}` everywhere, so confirm this works before building on it. *(Written on top of `llm.py`, which also tolerates fenced/chatty JSON; run it once the keys are in `.env`.)*
-- [ ] Get a free Groq key for Whisper and the fallback.
+- [x] Confirm the LiteLLM proxy URL, your key, and the exact model names it exposes (`GET <proxy-url>/v1/models`). *(`claude-haiku-5-5`, `claude-sonnet-5-5` present.)*
+- [x] Write `scripts/llm_smoke_test.py`: one JSON-mode call each to Sonnet and Haiku through the proxy. The code uses `response_format={"type": "json_object"}` everywhere, so confirm this works before building on it. *(Built on `llm.py`; JSON mode confirmed on Sonnet, Haiku and the Groq fallback.)*
+- [x] Get a free Groq key for Whisper and the fallback. *(Groq retired `llama-3.3-70b-versatile`; fallback is now `openai/gpt-oss-120b`.)*
 - [ ] Optional: get a free openFDA API key for higher rate limits.
 
 ---
@@ -117,7 +117,7 @@ Budget notes are at the end of this file.
 - [ ] **The demo's observations are fake.** `scripts/seed_demo.py` inserts hardcoded strings. This gets replaced by the Phase 7 replay. *(Phase 7 work.)*
 
 ### Visible bugs (from the report screenshots)
-- [ ] The story fallback prints `None` ("vitamin D deficiency (None, stable)") in `services/story.py::_fallback_story`. Fix it, and make the LLM story actually run. *(`None` fixed; a real LLM story check waits for the keys.)*
+- [x] The story fallback prints `None` ("vitamin D deficiency (None, stable)") in `services/story.py::_fallback_story`. Fix it, and make the LLM story actually run. *(`None` fixed; real Sonnet story verified, guard-clean.)*
 - [x] Vitals chart titles show raw keys ("BLOOD_GLUCOSE") because `pages/VitalsPage.tsx` renders `{vt}`. Add a label map.
 - [x] Every chart's y-axis starts at 0, so weight looks flat. Use a padded automatic range.
 - [x] Every seeded entry shows the same time (1:53 AM) because the seed uses "now minus N days". Give entries realistic times of day.

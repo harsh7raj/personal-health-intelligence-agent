@@ -78,7 +78,7 @@ def test_llm_settings_defaults_and_v1_groq_key_alias(monkeypatch):
     for var in ("FALLBACK_API_KEY", "GROQ_API_KEY", "LLM_TASK_TIERS"):
         monkeypatch.delenv(var, raising=False)
     s = Settings(_env_file=None)
-    assert s.FALLBACK_MODEL == "llama-3.3-70b-versatile"
+    assert s.FALLBACK_MODEL == "openai/gpt-oss-120b"
     assert s.MED_AI_FLAGS_ENABLED is False
     assert s.LLM_TASK_TIERS["router"] == "fast" and s.LLM_TASK_TIERS["story"] == "smart"
 

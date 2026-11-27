@@ -164,7 +164,7 @@ Every LLM call goes through `app/core/llm.py::llm_json(task, system, user)`. The
 `MODEL_FAST` (Haiku: router, intake, report_extract), `MODEL_SMART` (Sonnet: story, observations,
 report_summary, drug_reference), `MODEL_VISION` (Phase 4). Calls go to the LiteLLM proxy (`LLM_BASE_URL`,
 `LLM_API_KEY`; 5 s connect timeout, 1 retry, so failover is quick), and on ANY error, including an unparseable
-reply, to Groq `FALLBACK_MODEL` (`llama-3.3-70b-versatile`; key `FALLBACK_API_KEY`, the v1 name `GROQ_API_KEY`
+reply, to Groq `FALLBACK_MODEL` (`openai/gpt-oss-120b`, since Groq retired `llama-3.3-70b-versatile`; key `FALLBACK_API_KEY`, the v1 name `GROQ_API_KEY`
 still works). Replies are parsed leniently (code fences / stray prose). Every call logs task, provider, model,
 tokens, cost (LiteLLM's `x-litellm-response-cost` header, else the `LLM_PRICES` table) and latency to the log and
 `backend/llm_usage.jsonl` (gitignored; never prompt text). Callers check `is_available()` and keep their own
