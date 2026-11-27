@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Fatigue is logged as increasing, with 2 episodes and a severity of \"very\"; similar entries about tiredness were logged on 2025-10-24 and 2025-11-11.",
+   "Feeling cold is also logged as increasing, and earlier entries on 2025-10-24 and 2025-11-11 mention feeling cold alongside tiredness.",
+   "On the latest Thyroid Panel (2026-07-31), TSH was 1.9 µIU/mL and Free T4 was 1.4 ng/dL, both within reference ranges. Across reports, TSH moved down from 7.2 and Free T4 moved up from 0.8 ng/dL (2025-11-23), while weight has stayed stable."
+  ]
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Knee pain has now been logged 3 times: similar entries on 2026-05-07 (\"knee ache after badminton with the team\") and 2026-07-20 (\"knee sore again after badminton\"), and the trend is marked as increasing.",
+   "HbA1c on the Diabetes Panel reports went from 8.4% (2026-04-12) to 7.6% (2026-07-11) to 6.9% (2026-10-19), a steady downward trend, though the latest value is still flagged high against the 4.0-5.6% reference range.",
+   "Fasting glucose fell from 171 mg/dL (2026-04-12) to 152 mg/dL (2026-07-11) and was 128 mg/dL on the latest report. Heartburn episodes are trending upward (2 episodes), while shakiness is trending downward (3 episodes)."
+  ]
+ }
+}

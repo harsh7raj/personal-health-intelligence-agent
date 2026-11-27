@@ -23,6 +23,10 @@ _CHEST = rf"(?:chest\W+(?:\w+\W+){{0,3}}?{_CHEST_WORDS}|{_CHEST_WORDS}\W+(?:\w+\
 _RULES: list[tuple[str, str, str]] = [
     ("chest_on_exertion", "chest pain or tightness on exertion",
      rf"{_CHEST}[^.]{{0,60}}\b{_EXERTION}|\b{_EXERTION}[^.]{{0,60}}{_CHEST}"),
+    ("chest_pain_warning_signs", "chest pain with warning signs",
+     rf"\bcrushing\b[^.]{{0,40}}\bchest\b|{_CHEST}[^.]{{0,80}}\b(?:arm|jaw|neck|sweat\w*|breathless\w*"
+     r"|short of breath|nause\w*|vomit\w*)\b"
+     rf"|\b(?:arm|jaw)\b[^.]{{0,40}}{_CHEST}"),
     ("fainting", "fainting",
      r"\b(?:faint(?:ed|ing)?|passed out|blacked out|black out|lost consciousness|collapsed)\b"),
     ("stroke_signs", "one-sided weakness, face droop or slurred speech",

@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Headache has now been logged 4 times, all described as mild, with earlier entries on 2026-04-14, 2026-06-05 and 2026-08-23; the trend is listed as stable.",
+   "Several earlier headache entries mention long days on screens or in meetings (2026-04-14, 2026-06-05, 2026-08-23).",
+   "Across Diabetes Panel reports, HbA1c fell from 8.4% (2026-04-12) to 7.6% (2026-07-11) and was 6.9% on the latest report. Fasting glucose went from 171 to 152 to 128 mg/dL over the same reports. Shakiness has been logged 3 times."
+  ]
+ }
+}

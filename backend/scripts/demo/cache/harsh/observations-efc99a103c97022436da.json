@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "A similar stiffness entry was logged on 2026-06-20 (lower back stiff after a long drive); stiffness has now been logged 1 time among active problems.",
+   "On the Diabetes Panel from 2026-07-11, HbA1c was 7.6% and fasting plasma glucose was 152 mg/dL, both flagged above reference range, but both are lower than on 2026-04-12 (HbA1c 8.4%, fasting glucose 171 mg/dL).",
+   "Logged blood glucose readings show a rising trend, with the latest at 137, while lab panel values have trended down between the two reports."
+  ]
+ }
+}

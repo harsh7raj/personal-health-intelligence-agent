@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 _CITE = re.compile(r"\[([A-Z]\d+)\]")
 _TOPICS = {  # words in a question -> vital series worth showing
-    "blood_glucose": ("sugar", "glucose", "hba1c", "diabet"),
+    "blood_glucose": ("sugar", "glucose", "hba1c", "diabet", "hypoglyc", "hyperglyc", "lows", "shaky"),
     "bp_systolic": ("bp", "blood pressure", "pressure"),
     "bp_diastolic": ("bp", "blood pressure", "pressure"),
     "weight": ("weight", "kg"),
@@ -59,7 +59,8 @@ MEDICINES: speak about medicine safety only from "med_check", "possible_side_eff
 "medication_findings" or "pinned_finding". When a symptom is logged and "medication_findings" is present, \
 mention the most relevant finding briefly (its level and [id]) as something to ask their pharmacist about, \
 never as the cause. If a medicine was started or changed shortly before the recent episodes, say when, as a \
-circumstance. Before saying a test result is missing, check "reports". Name each finding's level as given (Verified / Official label / AI flag \
+circumstance. Before saying a test result is missing, check "reports". Never say the record has no \
+readings, symptoms or results of some kind: the pack holds only a selection, so say what it does show. Name each finding's level as given (Verified / Official label / AI flag \
 (unverified)) and cite its [id]; quote label text only from its "quote". Never say medicines are \
 safe together or that there is no interaction: when "med_check" has a "message", say exactly that \
 message. Never suggest stopping, skipping or changing a medicine; when there is a concern, add \
@@ -293,6 +294,16 @@ def _fallback(pack: dict, items: dict[str, dict]) -> str:
     return " ".join(lines)
 
 
+# Medicine all-clears and stop/change advice never reach the user (ROADMAP ground rules).
+_ALL_CLEAR = re.compile(
+    r"\b(?:are|is|it's|they're) (?:completely |perfectly |totally )?safe (?:to take |to use )?(?:together|with)\b"
+    r"|\bsafe(?:ly)? (?:to )?(?:combine|take them together)\b|\bsafe combination\b"
+    r"|\bno (?:known )?interactions?\b(?! found in our sources)|\bnothing to worry about\b"
+    r"|(?<!don't )(?<!do not )(?<!not )\bstop taking\b|\bdiscontinue\b",
+    re.IGNORECASE,
+)
+
+
 def check_reply(reply: str, items: dict[str, dict]) -> str | None:
     """Why a reply must be rejected, or None if it passes."""
     if not reply.strip():
@@ -300,6 +311,9 @@ def check_reply(reply: str, items: dict[str, dict]) -> str | None:
     unknown = [c for c in _CITE.findall(reply) if c not in items]
     if unknown:
         return f"cites ids not in the pack: {unknown}"
+    m = _ALL_CLEAR.search(reply)
+    if m:
+        return f"all-clear or stop wording: {m.group(0)!r}"
     if is_diagnostic(reply):
         from app.services.language_guard import violations
 

@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Knee pain has now been logged 2 times, and a similar knee ache was logged on 2026-05-07 after badminton; the trend is currently listed as stable.",
+   "Blood glucose readings are rising, with the latest at 163 mg/dL, about 11.5% above the earlier comparison.",
+   "On the Diabetes Panel, HbA1c went from 8.4% (2026-04-12) to 7.6% (2026-07-11), and fasting glucose from 171 to 152 mg/dL. Both remain flagged above the reference range."
+  ]
+ }
+}

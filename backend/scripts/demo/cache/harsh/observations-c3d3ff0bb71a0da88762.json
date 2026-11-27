@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "A skipped meal was also logged on 2026-07-31 (\"skipped lunch today, back to back meetings till 3\"), so this is a repeat of a similar note.",
+   "Blood glucose readings show a falling trend, with the latest at 125 mg/dL. Shakiness has been logged in 2 episodes and is trending down.",
+   "On the Diabetes Panel from 2026-07-11, HbA1c was 7.6% and fasting glucose was 152 mg/dL. Both are above the reference ranges and lower than the 2026-04-12 panel (8.4% and 171 mg/dL)."
+  ]
+ }
+}

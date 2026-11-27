@@ -1,0 +1,20 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "note",
+  "name": "walk",
+  "attributes": {
+   "distance": "4 km",
+   "timing": "after dinner",
+   "how_felt": "good"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [
+   "exercise"
+  ],
+  "other_symptoms": []
+ }
+}

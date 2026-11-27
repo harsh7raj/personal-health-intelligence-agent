@@ -1,0 +1,17 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "symptom",
+  "name": "headache",
+  "attributes": {
+   "severity": "mild",
+   "trigger": "back to back calls"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [],
+  "other_symptoms": []
+ }
+}

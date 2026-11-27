@@ -78,6 +78,15 @@ _PRESCRIBER_FACT = re.compile(
 )
 
 
+# "I can't say whether you have X" / "only your doctor can tell if you have X" is not an assertion.
+_NOT_AN_ASSERTION = re.compile(
+    r"\b(?:whether|if)\s+(?:or not\s+)?you\s+(?:have|might have)\b"
+    r"|\bnot an? (?:medical )?diagnos\w*|\bwithout (?:a |any )?diagnos\w*"
+    r"|\b(?:can'?t|cannot|can not|don'?t|do not|won'?t|never) (?:make |give |offer )?(?:a )?diagnos\w*",
+    re.IGNORECASE,
+)
+
+
 def violations(text: str, *, allow_attributed: bool = False) -> list[str]:
     """Return the matched denylist snippets in `text` (empty if clean).
 
@@ -88,6 +97,7 @@ def violations(text: str, *, allow_attributed: bool = False) -> list[str]:
     if allow_attributed:
         text = _without_attributed_sentences(text)
     text = _PRESCRIBER_FACT.sub(" ", text)
+    text = _NOT_AN_ASSERTION.sub(" ", text)
     return [m.group(0) for pat in _COMPILED for m in [pat.search(text)] if m]
 
 

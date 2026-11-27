@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Walking has been logged repeatedly, including on 2026-04-06, 2026-05-26, 2026-09-06, 2026-10-05 and 2026-11-11, usually with notes of feeling fine or good.",
+   "HbA1c on the Diabetes Panel reports went from 8.4% (2026-04-12) to 7.6% (2026-07-11) to 6.9% (2026-10-19), and the latest fasting glucose was 128 mg/dL; both are still flagged above the reference range.",
+   "Heartburn and knee pain are both trending upward in the logged problems (2 episodes and 1 episode), while shakiness has been decreasing across 3 episodes."
+  ]
+ }
+}

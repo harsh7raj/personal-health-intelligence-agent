@@ -24,7 +24,9 @@ log into a single structured JSON fact. Return ONLY a JSON object with keys:
 (e.g. "yesterday", "last night", "since Monday", "2 days ago"); never turn it into a date.
 - value: number for a SINGLE-number vital (heart rate, weight, glucose, SpO2, temperature), else null
 - unit: string unit for that single value if present, else null
-- complete: boolean — true if clear enough to record; false if a key field is missing
+- complete: boolean — false ONLY when you cannot tell what is being logged (no symptom, reading, \
+medicine or event named) or a reading has no number. A named symptom without severity, duration or \
+time is complete: record it as given.
 For BLOOD PRESSURE specifically: ALWAYS put both numbers in attributes as "systolic" and \
 "diastolic" (as numbers) and leave value and unit null — never collapse BP into the value field.
 - clarifying_question: one short question to ask if complete is false, else null
@@ -67,11 +69,19 @@ def parse_entry(text: str) -> dict:
     return fact
 
 
+def should_clarify(fact: dict, text: str) -> bool:
+    """Ask a clarifying question only for an incomplete log, and never for a red flag: that goes
+    straight on to the escalation (found by the Phase 8 eval)."""
+    from app.services.red_flags import check as red_flag
+
+    return not fact.get("complete", True) and not red_flag(text)
+
+
 def intake_node(state: GraphState) -> dict:
     text = state.raw_input or ""
     fact = parse_entry(text)
 
-    if not fact.get("complete", True):
+    if should_clarify(fact, text):
         return {
             "needs_clarification": True,
             "pending_question": fact.get("clarifying_question")

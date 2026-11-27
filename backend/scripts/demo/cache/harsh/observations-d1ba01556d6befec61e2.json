@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Back stiffness has been logged once so far; no earlier similar entries are on record to compare it with.",
+   "The Diabetes Panel from 2026-04-12 showed HbA1c at 8.4% (reference 4.0-5.6%) and fasting plasma glucose at 171 mg/dL (reference 70-100 mg/dL), both flagged high.",
+   "Logged blood glucose readings have been stable, with the latest at 170 mg/dL, similar to the fasting glucose of 171 mg/dL on the lab panel."
+  ]
+ }
+}

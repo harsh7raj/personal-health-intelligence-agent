@@ -1,0 +1,16 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   {
+    "text": "Fatigue is now logged and its trend is marked as increasing, alongside headache (3 episodes, increasing), shakiness (2 episodes) and poor sleep (1 episode)."
+   },
+   {
+    "text": "On the 2026-07-11 Diabetes Panel, HbA1c was 7.6% and fasting plasma glucose was 152 mg/dL, both flagged above reference range. Both are lower than on the 2026-04-12 panel (HbA1c 8.4%, fasting glucose 171 mg/dL)."
+   },
+   {
+    "text": "Logged blood glucose readings are stable, with the latest at 135 mg/dL. Blood pressure (128/77) and weight (80.3) are also stable."
+   }
+  ]
+ }
+}

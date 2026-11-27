@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "The Diabetes Panel dated 2026-04-12 showed HbA1c at 8.4% (reference 4.0-5.6) and fasting plasma glucose at 171 mg/dL (reference 70-100), both flagged high; estimated average glucose was 194 mg/dL.",
+   "Blood glucose readings have trended downward, with the latest at 154 mg/dL, about a 10% decrease from the prior reading.",
+   "Headache has been logged in 2 episodes, mild and stable. Blood pressure readings are stable, at 128/85 on the latest."
+  ]
+ }
+}

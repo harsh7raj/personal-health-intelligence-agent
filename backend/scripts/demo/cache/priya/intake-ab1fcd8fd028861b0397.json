@@ -1,0 +1,17 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "symptom",
+  "name": "fatigue",
+  "attributes": {},
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [],
+  "other_symptoms": [
+   "puffiness",
+   "weight gain"
+  ]
+ }
+}

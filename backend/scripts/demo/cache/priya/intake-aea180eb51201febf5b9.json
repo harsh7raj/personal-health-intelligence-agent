@@ -1,0 +1,22 @@
+{
+ "task": "intake",
+ "result": {
+  "type": "medication",
+  "name": "thyroid tablet, shelcal",
+  "attributes": {
+   "medications": [
+    "thyroid tablet",
+    "Shelcal"
+   ],
+   "time": "7",
+   "onset": "at 7 as usual",
+   "schedule": "as usual"
+  },
+  "value": null,
+  "unit": null,
+  "complete": true,
+  "clarifying_question": null,
+  "context_tags": [],
+  "other_symptoms": []
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "TSH was 7.2 µIU/mL on the Thyroid Panel dated 2025-11-23, above the report's reference range of 0.4–4.2, while Free T4 was 0.8 ng/dL, at the lower end of its 0.8–1.8 range.",
+   "Fatigue is logged with 2 episodes, a decreasing trend, and a severity of \"exhausted\"; hair loss has 1 episode logged.",
+   "Weight has remained stable at 58.0 across recorded readings."
+  ]
+ }
+}

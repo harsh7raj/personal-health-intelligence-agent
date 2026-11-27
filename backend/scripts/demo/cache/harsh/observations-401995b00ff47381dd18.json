@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "HbA1c was 7.6% on the 2026-07-11 Diabetes Panel, down from 8.4% on 2026-04-12. Fasting plasma glucose also fell from 171 mg/dL to 152 mg/dL over the same period. Both values were still flagged above their reference ranges.",
+   "Walking has been logged several times: 4 km after dinner on 2026-04-06 and a 30-minute evening walk on 2026-05-26. Both entries described feeling good or fine.",
+   "Blood glucose (latest 155), systolic BP (128) and diastolic BP (85) have each stayed stable in recent readings. Headache has been logged 2 times, described as mild and stable."
+  ]
+ }
+}

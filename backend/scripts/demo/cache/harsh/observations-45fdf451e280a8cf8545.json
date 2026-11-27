@@ -1,0 +1,10 @@
+{
+ "task": "observations",
+ "result": {
+  "observations": [
+   "Heartburn has now been logged 2 times; similar entries were recorded on 2026-04-21 (acidity after a late heavy dinner) and 2026-08-08 (acidity after biryani at a team dinner, had two drinks).",
+   "HbA1c was 6.9% on the 2026-10-19 Diabetes Panel (flagged high, reference 4.0 - 5.6), down from 7.6% on 2026-07-11 and 8.4% on 2026-04-12.",
+   "Blood glucose readings show a rising trend, with the latest at 136.0, while lab report values for fasting glucose and HbA1c are listed as stable."
+  ]
+ }
+}

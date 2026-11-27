@@ -70,3 +70,17 @@ def test_opt_in_still_blocks_unattributed_sentences():
 ])
 def test_naming_who_prescribed_is_not_prescribing(text, flagged):
     assert is_diagnostic(text) is flagged
+
+
+@pytest.mark.parametrize("text,flagged", [
+    ("I can't say whether you have hypoglycemia; Dr. Rao can.", False),
+    ("Only your doctor can tell if you have diabetes.", False),
+    ("You have hypoglycemia.", True),
+    ("You probably have diabetes.", True),
+    ("These are patterns in your records, not a diagnosis.", False),
+    ("I can't diagnose this; Dr. Rao can.", False),
+    ("This is a diagnosis of diabetes.", True),
+    ("Dr. Rao diagnosed you.", True),
+])
+def test_asking_whether_is_not_asserting(text, flagged):
+    assert is_diagnostic(text) is flagged
