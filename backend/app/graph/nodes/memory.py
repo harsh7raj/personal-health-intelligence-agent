@@ -63,7 +63,7 @@ def _report_matches(patient_id: int, text: str) -> list[dict]:
 def memory_node(state: GraphState) -> dict:
     ne = state.new_entry or {}
     entry_id = ne.get("entry_id")
-    text = ne.get("raw_text", "")
+    text = ne.get("raw_text") or state.raw_input or ""  # a question has no entry
     pid = state.patient_id
 
     semantic = _semantic_matches(pid, entry_id, text)

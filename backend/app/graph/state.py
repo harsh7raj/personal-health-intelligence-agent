@@ -27,5 +27,11 @@ class GraphState(BaseModel):
     # set by reasoning_node
     reasoning_summary: Optional[dict[str, Any]] = None
 
-    # set by response_node (Phase 6)
+    # chat (Phase 2, D31): the assistant reply built by response_node
+    chat: bool = False
+    focus: Optional[dict[str, Any]] = None
+    reply: Optional[str] = None
+    evidence: Optional[list[dict[str, Any]]] = None
+    escalation: Optional[dict[str, Any]] = None
+    generated_by: Optional[str] = None
     output_type: Optional[str] = None

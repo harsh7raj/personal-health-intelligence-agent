@@ -10,7 +10,14 @@ from app.graph.state import GraphState
 
 def _route_after_router(state: GraphState) -> str:
     # Questions are not saved (memory.md D21); logs and "both" go through intake.
-    return "question" if state.message_kind == "question" else "intake"
+    # In chat, a question goes to memory -> response for an answer (D31).
+    if state.message_kind == "question":
+        return "memory" if state.chat else "question"
+    return "intake"
+
+
+def _route_after_memory(state: GraphState) -> str:
+    return "reasoning" if state.new_entry else "response"
 
 
 def _route_after_intake(state: GraphState) -> str:
@@ -34,14 +41,18 @@ def build_graph():
 
     g.add_edge(START, "router")
     g.add_conditional_edges(
-        "router", _route_after_router, {"question": "question", "intake": "intake"}
+        "router",
+        _route_after_router,
+        {"question": "question", "intake": "intake", "memory": "memory"},
     )
     g.add_edge("question", END)
     g.add_conditional_edges(
         "intake", _route_after_intake, {"clarify": "clarify", "memory": "memory"}
     )
     g.add_edge("clarify", END)
-    g.add_edge("memory", "reasoning")
+    g.add_conditional_edges(
+        "memory", _route_after_memory, {"reasoning": "reasoning", "response": "response"}
+    )
     g.add_edge("reasoning", "response")
     g.add_edge("response", END)
     return g.compile()

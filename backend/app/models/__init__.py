@@ -19,7 +19,7 @@ from app.models.intelligence import (
     SuggestedAction,
 )
 from app.models.patient import MedicalBackground, Patient
-from app.models.records import Entry, MemoryLog, Report
+from app.models.records import ChatMessage, Entry, MemoryLog, Report
 from app.models.reference import DrugInteraction
 from app.models.user import User
 
@@ -39,6 +39,7 @@ __all__ = [
     "Alert",
     "MissingInformation",
     "SuggestedAction",
+    "ChatMessage",
     "Entry",
     "Report",
     "MemoryLog",

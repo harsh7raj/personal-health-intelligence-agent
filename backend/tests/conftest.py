@@ -124,6 +124,8 @@ def client(monkeypatch):
     monkeypatch.setattr(
         "app.graph.nodes.memory.get_reports_collection", lambda: fake, raising=False
     )
+    monkeypatch.setattr("app.services.retrieval.get_entries_collection", lambda: fake)
+    monkeypatch.setattr("app.services.retrieval.get_reports_collection", lambda: fake)
     monkeypatch.setattr("app.graph.nodes.intake.parse_entry", _stub_parse)
 
     import app.main as main_mod

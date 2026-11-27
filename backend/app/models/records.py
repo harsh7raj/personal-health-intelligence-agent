@@ -1,7 +1,18 @@
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Index, String, Text, func, text
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -85,3 +96,32 @@ class MemoryLog(CreatedAtMixin, Base):
     )
 
     entry: Mapped["Entry | None"] = relationship(back_populates="memory_logs")
+
+
+class ChatMessage(CreatedAtMixin, Base):
+    """One turn of the assistant chat (memory.md D31), so follow-ups ("and before that?")
+    have context and the UI can show history. Assistant turns keep their cited evidence."""
+
+    __tablename__ = "chat_messages"
+    __table_args__ = (
+        CheckConstraint("role in ('user','assistant')", name="ck_chat_role"),
+        Index("ix_chat_patient_created", "patient_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    patient_id: Mapped[int] = mapped_column(
+        ForeignKey("patients.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    # The entry this turn logged (user turn), if any.
+    entry_id: Mapped[int | None] = mapped_column(
+        ForeignKey("entries.id", ondelete="SET NULL"), nullable=True
+    )
+    evidence: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
+    # escalation, logged-entry tag, focus, pending clarification...
+    meta: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
