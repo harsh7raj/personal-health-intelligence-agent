@@ -58,7 +58,8 @@ Narrow responsibilities keep each part testable and reduce hallucination.
 ## Tech stack
 
 **Backend** — Python 3.11 · FastAPI · LangGraph · Pydantic v2 · PostgreSQL (SQLAlchemy 2 +
-Alembic) · ChromaDB (local `all-MiniLM-L6-v2` embeddings) · Groq LLM (OpenAI-compatible) ·
+Alembic) · ChromaDB (local `all-MiniLM-L6-v2` embeddings) · Claude Haiku/Sonnet via a LiteLLM
+proxy, with a Groq fallback (one entry point: `app/core/llm.py`) ·
 JWT auth · ReportLab (PDF)
 
 **Frontend** — React 19 · Vite · TypeScript · Tailwind CSS · TanStack Query · axios ·

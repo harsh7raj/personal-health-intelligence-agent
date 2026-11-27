@@ -4,7 +4,9 @@ import os
 TEST_DB_URL = "postgresql+psycopg://phia:phia@localhost:5432/phia_test"
 ADMIN_URL = "postgresql+psycopg://phia:phia@localhost:5432/postgres"
 os.environ["DATABASE_URL"] = TEST_DB_URL
-os.environ["GROQ_API_KEY"] = ""  # offline: intake fallback / story fallback / no obs LLM
+# Offline: no LLM provider configured (env beats backend/.env) and no usage-log file.
+for _var in ("LLM_BASE_URL", "LLM_API_KEY", "FALLBACK_API_KEY", "GROQ_API_KEY", "LLM_USAGE_LOG"):
+    os.environ[_var] = ""
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -67,12 +69,13 @@ def _no_external_calls(monkeypatch):
     """Keep the whole suite offline: no LLM, no RxNav, no DDInter download."""
     import app.core.llm as llm
 
-    llm.groq_client.cache_clear()
+    client_factory = llm._client  # tests may swap llm._client; clear the real cache
+    client_factory.cache_clear()
     monkeypatch.setattr(llm, "OpenAI", _BlockedLLMClient)
     # RxNav lookups degrade to the offline alias map / lowercased name.
     monkeypatch.setattr("app.services.rxnorm._get_json", lambda _url: None)
     yield
-    llm.groq_client.cache_clear()
+    client_factory.cache_clear()
 
 
 @pytest.fixture(scope="session", autouse=True)

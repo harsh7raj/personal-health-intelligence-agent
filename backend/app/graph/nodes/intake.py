@@ -1,15 +1,13 @@
 import logging
 from datetime import datetime, timezone
 
-from app.core.config import get_settings
-from app.core.llm import groq_json
+from app.core.llm import is_available, llm_json
 from app.db.session import SessionLocal
 from app.graph.state import GraphState
 from app.models.records import Entry
 from app.vectorstore.collections import get_entries_collection
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 _VALID_TYPES = {"symptom", "vital", "report", "medication", "note"}
 
@@ -29,7 +27,7 @@ NEVER infer or name a diagnosis, disease, cause, or treatment — capture the ra
 
 
 def _fallback_parse(text: str) -> dict:
-    # Used only when GROQ_API_KEY is unset (offline plumbing tests).
+    # Used when no LLM is configured or reachable (offline runs and tests).
     return {
         "type": "note",
         "name": (text.strip()[:64] or "note"),
@@ -42,11 +40,11 @@ def _fallback_parse(text: str) -> dict:
 
 
 def parse_entry(text: str) -> dict:
-    if not settings.GROQ_API_KEY:
-        logger.warning("GROQ_API_KEY not set — using deterministic fallback parser")
+    if not is_available():
+        logger.warning("No LLM configured; using the deterministic fallback parser")
         return _fallback_parse(text)
     try:
-        fact = groq_json(_SYSTEM_PROMPT, text)
+        fact = llm_json("intake", _SYSTEM_PROMPT, text)
     except Exception:
         logger.warning("intake LLM parse failed — degrading to fallback parser", exc_info=True)
         return _fallback_parse(text)

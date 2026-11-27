@@ -107,7 +107,7 @@ def upload_report(
     db.add(report)
     db.commit()
     db.refresh(report)
-    # Extraction (text + Groq structured parse) runs AFTER the response is sent, so the
+    # Extraction (text + LLM structured parse) runs AFTER the response is sent, so the
     # upload request never blocks on the LLM call. Status flips uploaded -> parsing ->
     # parsed|failed in the background.
     background.add_task(parse_report, report.id)

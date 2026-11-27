@@ -1,5 +1,5 @@
 """Offline unit tests for report intelligence (Part 2): lab trend reuse, Chroma chunk
-building, and the non-diagnostic ai_summary fallback. GROQ is disabled in tests, so the
+building, and the non-diagnostic ai_summary fallback. No LLM is configured in tests, so the
 summary path exercises the deterministic fallback."""
 
 from datetime import date, datetime, timezone
@@ -137,7 +137,7 @@ def test_build_report_chunks_non_lab_still_indexes_summary():
 
 
 def test_ai_summary_fallback_is_nondiagnostic():
-    """With GROQ off, the deterministic fallback fires and stays non-diagnostic."""
+    """With no LLM configured, the deterministic fallback fires and stays non-diagnostic."""
     values = [{"test_name": "LDL Cholesterol", "value": "176", "unit": "mg/dL",
                "reference_range": "<100", "flag": "high"}]
     trends = [{"test_name": "LDL Cholesterol", "trend": "rising", "since": "2026-02-10"}]

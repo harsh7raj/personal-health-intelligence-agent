@@ -5,7 +5,7 @@ summary), runs the extraction directly, and prints the structured JSON so we can
 eyeball that it looks sane. Does NOT touch the DB or the API — pure service test.
 
 Run:  uv run python -m scripts.test_report_extraction
-Requires GROQ_API_KEY in the environment / .env for the LLM step.
+Requires an LLM key (LLM_API_KEY or FALLBACK_API_KEY) in backend/.env for the LLM step.
 """
 
 import json

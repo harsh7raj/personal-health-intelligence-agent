@@ -41,25 +41,16 @@ class Settings(BaseSettings):
     # File uploads (lab reports)
     UPLOAD_DIR: str = "uploads"
 
-    # LLM — Intake parsing via Groq (OpenAI-compatible API). See memory.md D7.
-    GROQ_API_KEY: str = ""
-    GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
-    INTAKE_MODEL: str = "llama-3.3-70b-versatile"
-
     # Memory Agent retrieval (D2)
     MEMORY_TOPK: int = 5
     RECENT_WINDOW_DAYS: int = 180
-
-    # Reasoning + Response LLM (Groq, D8)
-    REASONING_MODEL: str = "llama-3.3-70b-versatile"
-    RESPONSE_MODEL: str = "llama-3.3-70b-versatile"
 
     # Reasoning constants (OQ2/3/5)
     RESOLVE_AFTER_DAYS: int = 90
     CLUSTER_WINDOW_HOURS: int = 48
     MISSING_BP_DAYS: int = 60
 
-    # LLM resilience (Phase 8)
+    # LLM resilience: request timeout, and retries on the Groq fallback.
     LLM_TIMEOUT: float = 30.0
     LLM_MAX_RETRIES: int = 2
 

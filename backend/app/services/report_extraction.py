@@ -1,7 +1,7 @@
 """Report extraction service (Part 1).
 
 Runs on upload as a background task: pulls raw text out of an uploaded report
-file, sends it to Groq for structured extraction, and persists the result on the
+file, sends it to the LLM for structured extraction, and persists the result on the
 ``reports`` row (status / report_type / test_date / extracted_values / parse_error).
 
 NO ChromaDB, Memory, or Reasoning wiring here — that is Part 2. This module only
@@ -15,8 +15,7 @@ from pathlib import Path
 
 from sqlalchemy import func, select
 
-from app.core.config import get_settings
-from app.core.llm import groq_client, groq_json
+from app.core.llm import is_available, llm_json
 from app.db.session import SessionLocal
 from app.models.clinical import VitalReading, VitalSummary
 from app.models.records import Report
@@ -28,7 +27,6 @@ from app.services.vitals_trend import (
 )
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 # Minimum characters of extractable text before we trust a PDF as text-based
 # (rather than a scanned image that yields a few stray glyphs).
@@ -169,18 +167,18 @@ def _str_or_none(v: object) -> str | None:
 
 
 def extract_report_data(text: str) -> dict:
-    """Send extracted text to Groq and return normalized structured fields:
+    """Send extracted text to the LLM and return normalized structured fields:
 
     ``{"report_type": str, "test_date": date|None, "values": list[dict]}``.
 
-    Raises if Groq is unavailable/unconfigured — the caller marks the report failed.
+    Raises if no LLM is available/configured — the caller marks the report failed.
     (Unlike intake, we do NOT silently fabricate a fallback extraction: an unparsed
     report must be visibly 'failed', never a hollow 'parsed'.)
     """
-    if not settings.GROQ_API_KEY:
-        raise ExtractionError("GROQ_API_KEY not set — cannot extract report structure")
+    if not is_available():
+        raise ExtractionError("No LLM configured — cannot extract report structure")
 
-    raw = groq_json(_SYSTEM_PROMPT, text, model=settings.INTAKE_MODEL)
+    raw = llm_json("report_extract", _SYSTEM_PROMPT, text)
 
     report_type = raw.get("report_type")
     if report_type not in _KNOWN_TYPES:
@@ -230,12 +228,12 @@ def generate_report_summary(
     """1-2 sentence plain-language, non-diagnostic takeaway (requirement #4).
 
     `trends` carries cross-report movement for recurring tests so the summary can say
-    "trending up since your March panel". Falls back to a deterministic sentence when Groq
-    is unavailable or the LLM output trips the non-diagnostic guard.
+    "trending up since your March panel". Falls back to a deterministic sentence when no
+    LLM is available or the LLM output trips the non-diagnostic guard.
     """
     if not values and not trends:
         return None
-    if not settings.GROQ_API_KEY:
+    if not is_available():
         return _deterministic_summary(report_type, values, trends)
 
     payload = {
@@ -253,16 +251,7 @@ def generate_report_summary(
         "trends": trends,
     }
     try:
-        resp = groq_client().chat.completions.create(
-            model=settings.RESPONSE_MODEL,
-            messages=[
-                {"role": "system", "content": _SUMMARY_SYSTEM},
-                {"role": "user", "content": json.dumps(payload)},
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.2,
-        )
-        raw = json.loads(resp.choices[0].message.content or "{}")
+        raw = llm_json("report_summary", _SUMMARY_SYSTEM, json.dumps(payload), temperature=0.2)
         summary = (raw.get("summary") or "").strip()
     except Exception:
         logger.warning("report ai_summary generation failed — using fallback", exc_info=True)

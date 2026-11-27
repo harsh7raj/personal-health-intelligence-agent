@@ -1,4 +1,4 @@
-"""LLM-authored observations (Groq). Strictly observational — never diagnostic."""
+"""LLM-authored observations. Strictly observational — never diagnostic."""
 
 import json
 import logging
@@ -6,14 +6,12 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
-from app.core.llm import groq_json
+from app.core.llm import is_available, llm_json
 from app.models.clinical import Problem, SymptomCluster, VitalSummary
 from app.models.intelligence import Observation
 from app.services.language_guard import is_diagnostic
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 _SYSTEM = """You write SHORT, factual, NON-DIAGNOSTIC observations about patterns in a \
 patient's longitudinal health data. HARD RULES: never state or imply a diagnosis; never name a \
@@ -31,7 +29,7 @@ BAD (diagnostic): "You have migraines", "This is caused by stress". Return JSON:
 def generate_observations(
     db: Session, patient_id: int, new_entry: dict, context_bundle: dict | None
 ) -> list[str]:
-    if not settings.GROQ_API_KEY:
+    if not is_available():
         return []
 
     active = [
@@ -85,7 +83,7 @@ def generate_observations(
     }
 
     try:
-        res = groq_json(_SYSTEM, json.dumps(payload), model=settings.REASONING_MODEL)
+        res = llm_json("observations", _SYSTEM, json.dumps(payload))
     except Exception:
         logger.warning("observation generation failed", exc_info=True)
         return []

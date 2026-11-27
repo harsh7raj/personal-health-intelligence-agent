@@ -1,4 +1,4 @@
-"""Health Story — Groq narrative (D8) with a deterministic fallback."""
+"""Health Story — LLM narrative (D15) with a deterministic fallback."""
 
 import json
 import logging
@@ -6,13 +6,11 @@ import re
 
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
-from app.core.llm import groq_json
+from app.core.llm import is_available, llm_json
 from app.schemas.health_state import PatientHealthState
 from app.services.state_assembler import assemble_state, derive_recent_changes
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 _SYSTEM = """You write a clear, specific, NON-DIAGNOSTIC health narrative from a patient's longitudinal data.
 Write EXACTLY THREE short paragraphs, separated by a blank line (\\n\\n):
@@ -93,9 +91,9 @@ def build_story(db: Session, patient_id: int) -> dict:
     # No real data yet → don't let the LLM invent one; return the deterministic fallback.
     if not _has_substantive_data(state):
         return {"story": _fallback_story(state), "generated_by": "fallback"}
-    if settings.GROQ_API_KEY:
+    if is_available():
         try:
-            res = groq_json(_SYSTEM, json.dumps(_payload(state)), model=settings.RESPONSE_MODEL)
+            res = llm_json("story", _SYSTEM, json.dumps(_payload(state)))
             story = (res.get("story") or "").strip()
             story = re.sub(r"[ \t]+\n", "\n", story)  # trim trailing spaces on lines
             story = re.sub(r"\n{3,}", "\n\n", story)  # collapse to single blank-line paragraph breaks
