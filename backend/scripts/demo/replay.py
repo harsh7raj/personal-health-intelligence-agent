@@ -166,10 +166,24 @@ def replay(key: str, log=print) -> int:
                 log(f"  {key}: {i}/{len(timeline)} events")
         with SessionLocal() as db:  # trends as of today
             refresh_problem_trends(db, pid)
+            _close_done_tests(db, pid)
             db.commit()
     make_live_files(script, today)
     _warm_med_checks(pid, log)
     return pid
+
+
+def _close_done_tests(db, pid: int) -> None:
+    """A test reminder from a replayed visit is done once a report came in after that visit."""
+    from sqlalchemy import select
+
+    from app.models.visits import Reminder
+
+    reports = [r.test_date for r in db.scalars(select(Report).where(Report.patient_id == pid)).all() if r.test_date]
+    for rem in db.scalars(select(Reminder).where(Reminder.patient_id == pid, Reminder.kind == "test")).all():
+        visit = db.get(Visit, rem.visit_id) if rem.visit_id else None
+        if visit and any(d > visit.visit_date for d in reports):
+            rem.done = True
 
 
 def _warm_med_checks(pid: int, log) -> None:
