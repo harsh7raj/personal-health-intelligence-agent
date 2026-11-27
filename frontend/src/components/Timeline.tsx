@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import * as ep from "@/lib/endpoints"
 import type { Problem, VitalReading, VitalSummary } from "@/lib/endpoints"
@@ -199,6 +199,12 @@ export function Timeline({
 }) {
   const [selected, setSelected] = useState<Ev | null>(null)
   const events = buildEvents(problems, vitals, summaries)
+  // Oldest -> newest left to right, but open scrolled to the newest end (recent first).
+  const scrollRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [events.length])
   if (!events.length) return <p className="text-sm text-muted-foreground">No timeline events yet.</p>
   const handle = (e: Ev) => {
     if (e.problemId != null && onSelectProblem) onSelectProblem(e.problemId)
@@ -206,7 +212,7 @@ export function Timeline({
   }
   return (
     <>
-      <div className="overflow-x-auto pb-1">
+      <div ref={scrollRef} className="overflow-x-auto pb-1">
         <div className="relative flex min-w-max items-start gap-2 px-1 pt-1">
           <div className="absolute left-3 right-3 top-[30px] h-px bg-border" />
           {events.map((e, i) => (
