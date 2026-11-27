@@ -9,6 +9,7 @@ from app.models.clinical import VitalReading, VitalSummary
 from app.schemas.clinical_io import VitalCreate, VitalOut
 from app.schemas.outputs import VitalSummaryOut
 from app.services.alerts import create_alerts_for_readings
+from app.services.missing_info import check_missing_info
 from app.services.vitals_trend import recompute_summary
 
 router = APIRouter(prefix="/patients", tags=["vitals"])
@@ -41,6 +42,7 @@ def create_vital(
     # Keep the vital summary + alerts consistent with intake-driven readings (Phase 8).
     recompute_summary(db, patient.id, vital.vital_type)
     create_alerts_for_readings(db, patient.id, [(vital.vital_type, vital.value, vital.unit)])
+    check_missing_info(db, patient.id)  # e.g. a BP reading closes the "no BP in 60 days" gap
     db.commit()
     return vital
 

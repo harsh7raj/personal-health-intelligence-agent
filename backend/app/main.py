@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
+    actions,
     alerts,
     auth,
     background,
@@ -90,6 +91,7 @@ def create_app() -> FastAPI:
     app.include_router(outputs.router, prefix=settings.API_PREFIX)
     app.include_router(timeline.router, prefix=settings.API_PREFIX)
     app.include_router(alerts.router, prefix=settings.API_PREFIX)
+    app.include_router(actions.router, prefix=settings.API_PREFIX)
     app.include_router(doctor_access.router, prefix=settings.API_PREFIX)
     app.include_router(shared.router, prefix=settings.API_PREFIX)
     return app

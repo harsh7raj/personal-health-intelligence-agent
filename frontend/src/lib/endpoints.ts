@@ -47,6 +47,9 @@ export interface Problem {
   last_seen: string | null; resolved_at: string | null; attributes: Record<string, unknown>
 }
 export interface Observation { id: number; text: string; created_at: string }
+export interface SuggestedAction {
+  id: number; text: string; created_at: string; dismissed: boolean; dismissed_at: string | null
+}
 export interface DoctorAccess {
   id: number; token: string; doctor_label: string | null
   expires_at: string; revoked: boolean; created_at: string
@@ -291,6 +294,10 @@ export const listAlerts = (id: number, unacknowledged = false) =>
   api.get<Alert[]>(`/patients/${id}/alerts`, { params: { unacknowledged } }).then((r) => r.data)
 export const ackAlert = (id: number, aid: number) =>
   api.post<Alert>(`/patients/${id}/alerts/${aid}/ack`).then((r) => r.data)
+export const listSuggestedActions = (id: number) =>
+  api.get<SuggestedAction[]>(`/patients/${id}/suggested-actions`).then((r) => r.data)
+export const dismissSuggestedAction = (id: number, actionId: number) =>
+  api.post<SuggestedAction>(`/patients/${id}/suggested-actions/${actionId}/dismiss`).then((r) => r.data)
 export const getAlertContext = (id: number, aid: number) =>
   api.get<AlertContext>(`/patients/${id}/alerts/${aid}/context`).then((r) => r.data)
 export const getProblemTimeline = (id: number, problemId: number) =>

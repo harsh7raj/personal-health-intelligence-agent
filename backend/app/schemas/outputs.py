@@ -264,3 +264,13 @@ class MedCalendarOut(BaseModel):
     groups: list[CalendarGroup]
     medication_count: int
     disclaimer: str
+
+
+class SuggestedActionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    text: str
+    created_at: datetime
+    dismissed: bool
+    dismissed_at: Optional[datetime] = None
