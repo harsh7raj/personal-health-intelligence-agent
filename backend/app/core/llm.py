@@ -6,10 +6,13 @@ estimated cost for every call. Callers check is_available() first and keep their
 deterministic fallback for when no LLM can be reached at all.
 """
 
+import hashlib
 import json
 import logging
 import re
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -38,9 +41,35 @@ def _primary_ready(s: Settings) -> bool:
 
 
 def is_available() -> bool:
-    """True if at least one provider (LiteLLM or the Groq fallback) is configured."""
+    """True if a provider (LiteLLM or the Groq fallback) is configured, or a response cache
+    is active (a demo replay can then run offline from stored answers)."""
     s = get_settings()
-    return _primary_ready(s) or bool(s.FALLBACK_API_KEY)
+    return _primary_ready(s) or bool(s.FALLBACK_API_KEY) or _cache_dir is not None
+
+
+# ---- Response cache (demo replays; memory.md D32) ----
+_cache_dir: Path | None = None
+
+
+@contextmanager
+def response_cache(directory: Path) -> Iterator[Path]:
+    """Within this block an identical request (task + prompts) returns the stored answer
+    instead of calling a model, and new answers are stored. Makes demo re-seeding offline,
+    free and identical. Not for the live app."""
+    global _cache_dir
+    previous, _cache_dir = _cache_dir, Path(directory)
+    _cache_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        yield _cache_dir
+    finally:
+        _cache_dir = previous
+
+
+def _cache_path(task: str, system: str, user: str, as_json: bool, max_tokens: int | None) -> Path:
+    key = hashlib.sha256(
+        json.dumps([task, system, user, as_json, max_tokens], ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    return _cache_dir / f"{task}-{key[:20]}.json"  # type: ignore[operator]
 
 
 def model_for(task: str) -> str:
@@ -166,6 +195,20 @@ def complete_json(
 def _route(
     task: str, system: str, user: str, temperature: float, as_json: bool,
     max_tokens: int | None = None,
+) -> Any:
+    if _cache_dir is not None:
+        path = _cache_path(task, system, user, as_json, max_tokens)
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))["result"]
+        result = _route_live(task, system, user, temperature, as_json, max_tokens)
+        path.write_text(json.dumps({"task": task, "result": result}, ensure_ascii=False, indent=1),
+                        encoding="utf-8")
+        return result
+    return _route_live(task, system, user, temperature, as_json, max_tokens)
+
+
+def _route_live(
+    task: str, system: str, user: str, temperature: float, as_json: bool, max_tokens: int | None,
 ) -> Any:
     s = get_settings()
     model = model_for(task)  # validates the task name even when only the fallback is set

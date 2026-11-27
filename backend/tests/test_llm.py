@@ -179,3 +179,22 @@ def test_llm_text_returns_prose_and_falls_back_on_empty(cfg, monkeypatch):
 
     _use(monkeypatch, _FakeClient(_Raw("   ")), _FakeClient(_Raw("From Groq.")))
     assert llm.llm_text("assistant", "sys", "user") == "From Groq."
+
+
+def test_response_cache_replays_without_calling_a_model(cfg, monkeypatch, tmp_path):
+    primary = _FakeClient(_Raw('{"a": 1}'))
+    _use(monkeypatch, primary, _FakeClient(error=AssertionError("no fallback")))
+    with llm.response_cache(tmp_path / "cache"):
+        assert llm.llm_json("intake", "sys", "user") == {"a": 1}  # miss: calls and stores
+        assert llm.llm_json("intake", "sys", "user") == {"a": 1}  # hit: no second call
+        assert llm.llm_text("assistant", "sys", "other") == '{"a": 1}'
+    assert len(primary.calls) == 2
+    assert len(list((tmp_path / "cache").glob("*.json"))) == 2
+
+    # Offline (no keys) the cache still answers, and is_available() says so.
+    monkeypatch.setattr(cfg, "LLM_API_KEY", "")
+    monkeypatch.setattr(cfg, "FALLBACK_API_KEY", "")
+    with llm.response_cache(tmp_path / "cache"):
+        assert llm.is_available() is True
+        assert llm.llm_json("intake", "sys", "user") == {"a": 1}
+    assert llm.is_available() is False
