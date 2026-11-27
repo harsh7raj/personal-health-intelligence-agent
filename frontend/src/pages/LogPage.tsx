@@ -29,6 +29,8 @@ function summarizeExtracted(structured: Record<string, unknown>): string {
   if (a.duration) parts.push(String(a.duration))
   if (a.location) parts.push(String(a.location))
   if (a.onset) parts.push(`onset ${a.onset}`)
+  const tags = Array.isArray(s.context_tags) ? (s.context_tags as string[]) : []
+  if (tags.length) parts.push(tags.map((t) => t.replace(/_/g, " ")).join(", "))
   return parts.length ? `${name} · ${parts.join(" · ")}` : name
 }
 

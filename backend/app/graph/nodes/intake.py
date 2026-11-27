@@ -5,6 +5,7 @@ from app.core.llm import is_available, llm_json
 from app.db.session import SessionLocal
 from app.graph.state import GraphState
 from app.models.records import Entry
+from app.services.context_tags import merge_tags
 from app.services.onset import resolve_onset
 from app.vectorstore.collections import get_entries_collection
 
@@ -25,6 +26,9 @@ log into a single structured JSON fact. Return ONLY a JSON object with keys:
 For BLOOD PRESSURE specifically: ALWAYS put both numbers in attributes as "systolic" and \
 "diastolic" (as numbers) and leave value and unit null — never collapse BP into the value field.
 - clarifying_question: one short question to ask if complete is false, else null
+- context_tags: circumstances the user STATED, only from this list: "skipped_meal", \
+"delayed_meal", "poor_sleep", "stress", "missed_dose", "alcohol", "exercise", "travel". \
+[] if none. Never guess one they did not mention.
 Normalize lay terms (e.g. "tummy ache" -> "abdominal pain"). Record only what the user states; \
 NEVER infer or name a diagnosis, disease, cause, or treatment — capture the raw symptom/vital/note only."""
 
@@ -69,6 +73,9 @@ def intake_node(state: GraphState) -> dict:
             "pending_question": fact.get("clarifying_question")
             or "Could you provide a bit more detail?",
         }
+
+    # Circumstances (skipped meal, poor sleep...): vocabulary-checked LLM tags + keyword rules.
+    fact["context_tags"] = merge_tags(fact.get("context_tags"), text)
 
     # When it happened: the LLM quotes the onset words, code resolves them (D17).
     onset = (fact.get("attributes") or {}).get("onset")
