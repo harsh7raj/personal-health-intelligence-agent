@@ -1,6 +1,7 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { AlertTriangle, Download, FileText, Loader2, RotateCw, Sparkles, Trash2 } from "lucide-react"
+import { AlertTriangle, Download, FileText, Loader2, MessageSquareText, RotateCw, Sparkles, Trash2 } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 import * as ep from "@/lib/endpoints"
 import type { FlaggedValue, Report, ReportStatus } from "@/lib/endpoints"
@@ -68,12 +69,14 @@ function ReportCard({
   onDownload,
   onDelete,
   onRetry,
+  onExplain,
   busy,
 }: {
   report: Report
   onDownload: (r: Report) => void
   onDelete: (rid: number) => void
   onRetry: (rid: number) => void
+  onExplain: (rid: number) => void
   busy: boolean
 }) {
   const testDate = fmtDate(report.test_date)
@@ -123,6 +126,15 @@ function ReportCard({
           </p>
         ) : (
           <>
+            {report.critical_count > 0 && (
+              <div className="flex items-start gap-2 rounded-lg border-2 border-red-300 bg-red-50 px-3 py-2.5 text-sm font-semibold text-red-800" role="alert">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  {report.critical_count === 1 ? "A value is" : `${report.critical_count} values are`} beyond the level where
+                  labs advise contacting a doctor the same day. Please contact your doctor today.
+                </span>
+              </div>
+            )}
             {report.ai_summary && (
               <p className="flex items-start gap-2 text-sm leading-relaxed text-foreground">
                 <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -155,6 +167,11 @@ function ReportCard({
         )}
 
         <div className="flex items-center gap-1 border-t pt-3">
+          {report.status === "parsed" && (
+            <Button onClick={() => onExplain(report.id)}>
+              <MessageSquareText className="h-3.5 w-3.5" /> Explain this report
+            </Button>
+          )}
           <Button variant="ghost" onClick={() => onDownload(report)} disabled={busy}>
             <Download className="h-3.5 w-3.5" /> Original file
           </Button>
@@ -181,17 +198,29 @@ export default function ReportsPage() {
   })
   const [file, setFile] = useState<File | null>(null)
   const [type, setType] = useState("")
+  const navigate = useNavigate()
+  const justUploaded = useRef<number | null>(null)
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["reports", pid] })
 
   const upload = useMutation({
     mutationFn: () => ep.uploadReport(pid, file!, type || undefined),
-    onSuccess: () => {
+    onSuccess: (created: { id: number }) => {
+      justUploaded.current = created.id
       setFile(null)
       setType("")
       invalidate()
     },
   })
+
+  // When the report uploaded here finishes processing, open it with its explanation.
+  useEffect(() => {
+    const done = (reports.data ?? []).find((r) => r.id === justUploaded.current && r.status === "parsed")
+    if (done) {
+      justUploaded.current = null
+      navigate(`/reports/${done.id}`)
+    }
+  }, [reports.data, navigate])
   const del = useMutation({
     mutationFn: (rid: number) => ep.deleteReport(pid, rid),
     onSuccess: invalidate,
@@ -227,6 +256,7 @@ export default function ReportsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Input
               type="file"
+              accept=".pdf,.txt,image/jpeg,image/png,image/webp"
               className="min-w-[200px] flex-1"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
@@ -242,8 +272,8 @@ export default function ReportsPage() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            PDF or text lab reports. I'll extract the values, flag anything outside its reference range,
-            and track recurring tests across reports.
+            PDF, scanned PDF or a phone photo of a lab report. I'll read the values, compare each with its printed
+            range and your earlier reports, and open an explanation when it's ready.
           </p>
         </CardContent>
       </Card>
@@ -274,6 +304,7 @@ export default function ReportsPage() {
               onDownload={(rep) => dl.mutate(rep)}
               onDelete={(rid) => del.mutate(rid)}
               onRetry={(rid) => retry.mutate(rid)}
+              onExplain={(rid) => navigate(`/reports/${rid}`)}
               busy={busyId === r.id && (del.isPending || retry.isPending || dl.isPending)}
             />
           ))}

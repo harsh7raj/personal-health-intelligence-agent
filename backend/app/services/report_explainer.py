@@ -42,7 +42,8 @@ fine or worrying; never explain WHY their value is high or low; never suggest tr
 changes or dose changes; never interpret beyond the printed range and their record. Say \
 "outside the printed range" or "above the range", not "abnormal".
 Finish by suggesting they go over the report with their doctor.
-Write 4 to 8 short sentences (a short list is fine), addressed to the user ("you").
+Write 4 to 8 short sentences (a short list is fine), addressed to the user ("you"). Plain text, \
+no markdown: no ** or #; a list item starts its line with "- ".
 Return only the explanation text, with its [ids]."""
 
 FOLLOW_UP_RULES = """When "focused_report" or "glossary" is in the pack: explain what a test \

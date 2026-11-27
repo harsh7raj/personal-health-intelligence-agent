@@ -256,9 +256,44 @@ export interface Report {
   ai_summary: string | null
   flagged_values: FlaggedValue[]
   flagged_count: number
+  critical_count: number
   parse_error: string | null
   created_at: string
 }
+export interface ReportRow {
+  test_name: string
+  display_name: string
+  test_key: string | null
+  value: string | null
+  unit: string | null
+  reference_range: string | null
+  range_low: number | null
+  range_high: number | null
+  flag: string
+  outside_by: { direction: "above" | "below"; amount: number; percent: number | null } | null
+  critical: { direction: string; message: string } | null
+  previous: { id: string; value: number; unit: string | null; date: string } | null
+  change: { amount: number; percent: number | null; direction: "up" | "down" | "same" } | null
+  glossary_id: string | null
+}
+export interface ReportDetail {
+  id: number
+  filename: string
+  report_type: string | null
+  status: ReportStatus
+  test_date: string | null
+  ai_summary: string | null
+  parse_error: string | null
+  created_at: string
+  values: ReportRow[]
+  critical: { test_name: string; message: string }[]
+}
+export const getReport = (id: number, rid: number) =>
+  api.get<ReportDetail>(`/patients/${id}/reports/${rid}`).then((r) => r.data)
+export const explainReport = (id: number, rid: number, regenerate = false) =>
+  api.post<ChatMessage>(`/patients/${id}/reports/${rid}/explain`, null, { params: { regenerate } }).then((r) => r.data)
+export const reportQuestions = (id: number, rid: number) =>
+  api.post<{ questions: string[]; generated_by: string }>(`/patients/${id}/reports/${rid}/questions`).then((r) => r.data)
 export const listReports = (id: number) =>
   api.get<Report[]>(`/patients/${id}/reports`).then((r) => r.data)
 export const retryReport = (id: number, rid: number) =>
@@ -331,7 +366,8 @@ export interface ChatEvidence {
   id: string; kind: string; date?: string | null; time?: string | null; text?: string | null
   name?: string | null; value?: number; unit?: string | null; vital_type?: string
   medication?: string; event?: string; old_dose?: string | null; new_dose?: string | null
-  report_type?: string | null; entry_id?: number
+  report_type?: string | null; entry_id?: number; report_id?: number
+  measures?: string; url?: string; test?: string
 }
 export interface ChatEscalation {
   kind: "medical" | "mental_health"; reasons: string[]; message: string; call: string; offer?: string[]
@@ -346,9 +382,13 @@ export interface ChatReply {
 }
 export interface ChatMessage {
   id: number; role: "user" | "assistant"; content: string; evidence: ChatEvidence[]; created_at: string
-  meta: { logged_entry?: LoggedTag; escalation?: ChatEscalation; generated_by?: string; clarify_for?: string }
+  meta: {
+    logged_entry?: LoggedTag; escalation?: ChatEscalation; generated_by?: string; clarify_for?: string
+    report_id?: number; kind?: string; critical?: string[]
+  }
 }
 export const sendChat = (id: number, message: string, focus?: Record<string, unknown>) =>
   api.post<ChatReply>(`/patients/${id}/chat`, { message, focus }).then((r) => r.data)
-export const getChatHistory = (id: number) =>
-  api.get<ChatMessage[]>(`/patients/${id}/chat`).then((r) => r.data)
+export const getChatHistory = (id: number, reportId?: number) =>
+  api.get<ChatMessage[]>(`/patients/${id}/chat`, { params: reportId ? { report_id: reportId } : undefined })
+    .then((r) => r.data)

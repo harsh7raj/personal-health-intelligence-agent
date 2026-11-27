@@ -20,8 +20,9 @@ function fmtDay(iso?: string | null): string {
   return new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
 }
 
-/** Short label for an evidence chip: its date, else its id. */
+/** Short label for an evidence chip: a glossary entry's test name, else its date, else its id. */
 function chipLabel(e: ChatEvidence | undefined, id: string): string {
+  if (e?.kind === "glossary") return `about ${e.name ?? id}`
   return e?.date ? fmtDay(e.date) : id
 }
 
@@ -32,7 +33,14 @@ function evidenceTitle(e: ChatEvidence): string {
     return `${e.medication}: ${change}`
   }
   if (e.kind === "report") return `${e.report_type ?? "Report"}`
+  if (e.kind === "glossary") return `What ${e.name} measures`
   return e.name ? `Logged: ${e.name}` : "Logged entry"
+}
+
+/** Plain text with any **bold** the model slipped in shown as bold, never as asterisks. */
+function Bold({ text }: { text: string }) {
+  const bits = text.split(/\*\*(.+?)\*\*/g)
+  return <span>{bits.map((b, j) => (j % 2 ? <strong key={j}>{b}</strong> : b))}</span>
 }
 
 function ReplyText({ text, evidence, onOpen }: { text: string; evidence: ChatEvidence[]; onOpen: (e: ChatEvidence) => void }) {
@@ -41,7 +49,7 @@ function ReplyText({ text, evidence, onOpen }: { text: string; evidence: ChatEvi
   return (
     <p className="whitespace-pre-line leading-relaxed">
       {parts.map((part, i) => {
-        if (i % 2 === 0) return <span key={i}>{part}</span>
+        if (i % 2 === 0) return <Bold key={i} text={part} />
         const item = byId.get(part)
         return (
           <button
@@ -101,6 +109,17 @@ function EscalationBanner({ esc, pid }: { esc: ChatEscalation; pid: number }) {
   )
 }
 
+function CriticalBanner({ lines }: { lines: string[] }) {
+  return (
+    <div className="mb-2 rounded-xl border-2 border-red-300 bg-red-50 p-3 text-sm font-semibold text-red-800" role="alert">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <div className="space-y-1">{lines.map((l) => <p key={l}>{l}</p>)}</div>
+      </div>
+    </div>
+  )
+}
+
 function Bubble({ msg, pid, onOpen }: { msg: ChatMessage; pid: number; onOpen: (e: ChatEvidence) => void }) {
   if (msg.role === "user") {
     return (
@@ -112,6 +131,7 @@ function Bubble({ msg, pid, onOpen }: { msg: ChatMessage; pid: number; onOpen: (
   return (
     <div className="max-w-[88%]">
       {msg.meta?.escalation && <EscalationBanner esc={msg.meta.escalation} pid={pid} />}
+      {msg.meta?.critical && msg.meta.critical.length > 0 && <CriticalBanner lines={msg.meta.critical} />}
       <div className="rounded-2xl rounded-bl-sm border border-border bg-muted px-3.5 py-2.5 text-sm text-foreground">
         {msg.meta?.logged_entry && <LoggedChip tag={msg.meta.logged_entry} />}
         <ReplyText text={msg.content} evidence={msg.evidence ?? []} onOpen={onOpen} />
@@ -123,17 +143,23 @@ function Bubble({ msg, pid, onOpen }: { msg: ChatMessage; pid: number; onOpen: (
 /** The assistant chat. Reusable: the same panel opens beside reports/medicines (focus). */
 export function ChatPanel({
   pid,
-  focus,
+  reportId,
   suggestions = DEFAULT_SUGGESTIONS,
+  emptyText,
+  placeholder = "e.g. 'feeling shaky, skipped lunch' or 'how has my sugar been this month?'",
   className,
 }: {
   pid: number
-  focus?: Record<string, unknown>
+  /** Pin a report: its own thread, and follow-ups answered with that report in view. */
+  reportId?: number
   suggestions?: string[]
+  emptyText?: string
+  placeholder?: string
   className?: string
 }) {
   const qc = useQueryClient()
-  const history = useQuery({ queryKey: ["chat", pid], queryFn: () => ep.getChatHistory(pid) })
+  const focus = reportId ? { type: "report", id: reportId } : undefined
+  const history = useQuery({ queryKey: ["chat", pid, reportId ?? "all"], queryFn: () => ep.getChatHistory(pid, reportId) })
   const [text, setText] = useState("")
   const [pendingText, setPendingText] = useState<string | null>(null)
   const [open, setOpen] = useState<ChatEvidence | null>(null)
@@ -167,7 +193,8 @@ export function ChatPanel({
           <p className="text-sm text-muted-foreground">Loading your conversation…</p>
         ) : messages.length === 0 && !pendingText ? (
           <p className="text-sm text-muted-foreground">
-            Tell me how you're feeling or log a reading, or ask about your history. I'll answer from your own records, with dates.
+            {emptyText ??
+              "Tell me how you're feeling or log a reading, or ask about your history. I'll answer from your own records, with dates."}
           </p>
         ) : (
           messages.map((m) => <Bubble key={m.id} msg={m} pid={pid} onOpen={setOpen} />)
@@ -191,7 +218,7 @@ export function ChatPanel({
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="e.g. 'feeling shaky, skipped lunch' or 'how has my sugar been this month?'"
+            placeholder={placeholder}
             className="min-h-[44px]"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
@@ -227,6 +254,21 @@ export function ChatPanel({
               {open.time ? ` · ${open.time}` : ""}
             </p>
             {open.text && <p className="text-foreground">“{open.text}”</p>}
+            {open.kind === "glossary" && (
+              <>
+                <p className="text-foreground">{open.measures}</p>
+                {open.url && (
+                  <a href={open.url} target="_blank" rel="noreferrer" className="text-primary underline">
+                    More on MedlinePlus
+                  </a>
+                )}
+              </>
+            )}
+            {open.kind === "report" && open.report_id && (
+              <Link to={`/reports/${open.report_id}`} className="text-primary underline">
+                Open the report
+              </Link>
+            )}
             <p className="text-xs text-muted-foreground">Evidence {open.id}</p>
           </div>
         </Dialog>

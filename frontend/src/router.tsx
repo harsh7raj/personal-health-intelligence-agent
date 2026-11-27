@@ -11,6 +11,7 @@ import StoryPage from "@/pages/StoryPage"
 import SharePage from "@/pages/SharePage"
 import MedicationsPage from "@/pages/MedicationsPage"
 import ReportsPage from "@/pages/ReportsPage"
+import ReportPage from "@/pages/ReportPage"
 import DoctorViewPage from "@/pages/DoctorViewPage"
 
 function ProtectedLayout() {
@@ -39,6 +40,7 @@ export const router = createBrowserRouter([
       { path: "/story", element: <StoryPage /> },
       { path: "/medications", element: <MedicationsPage /> },
       { path: "/reports", element: <ReportsPage /> },
+      { path: "/reports/:rid", element: <ReportPage /> },
       { path: "/share", element: <SharePage /> },
     ],
   },
