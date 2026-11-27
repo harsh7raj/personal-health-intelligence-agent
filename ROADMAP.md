@@ -187,9 +187,9 @@ Budget notes are at the end of this file.
 
 **Goal:** right after a visit, the patient records or types what happened. The app turns it into a clean note that feeds the memory.
 
-- [ ] Add a `visits` table: `doctor_name`, `specialty`, `visit_date`, `source` (voice / typed / recording), `transcript`, `audio_path`, `structured` (JSON), and `status` (draft / confirmed).
-- [ ] Input: record in the browser (MediaRecorder), upload an audio file, or type the recap. Whisper on Groq turns audio into a transcript.
-- [ ] Sonnet structures the transcript into:
+- [x] Add a `visits` table: `doctor_name`, `specialty`, `visit_date`, `source` (voice / typed / recording), `transcript`, `audio_path`, `structured` (JSON), and `status` (draft / confirmed).
+- [x] Input: record in the browser (MediaRecorder), upload an audio file, or type the recap. Whisper on Groq turns audio into a transcript.
+- [x] Sonnet structures the transcript into:
   - reason for the visit,
   - what was discussed,
   - what the doctor said (attributed),
@@ -198,21 +198,21 @@ Budget notes are at the end of this file.
   - follow-up date,
   - things to watch for,
   - questions for next time.
-- [ ] Map brand names to generics and flag names that don't match RxNorm as "please check" (Phase 5). Speech-to-text mishears names like glimepiride vs glipizide.
-- [ ] Add a review screen where the user edits and confirms. On confirm:
+- [x] Map brand names to generics and flag names that don't match RxNorm as "please check" (Phase 5). Speech-to-text mishears names like glimepiride vs glipizide.
+- [x] Add a review screen where the user edits and confirms. On confirm:
   - apply medicine changes to `medications` and `medication_events`, with this doctor as prescriber,
   - create reminders for tests and follow-ups,
   - embed the note so the assistant can recall it,
   - run the medication safety check (Phase 5) on the updated list.
-- [ ] **Clashes between doctors:** if one doctor's new medicine interacts with or duplicates another doctor's, show it on the review screen and in the next pre-visit brief.
-- [ ] **Pre-visit brief** for each doctor:
+- [x] **Clashes between doctors:** if one doctor's new medicine interacts with or duplicates another doctor's, show it on the review screen and in the next pre-visit brief.
+- [x] **Pre-visit brief** for each doctor:
   - what happened at the last visit,
   - what's changed since (symptoms, readings, reports, adherence, other doctors' changes),
   - open medication findings,
   - the questions you saved (including ones saved from the report explainer),
   - printable, and shareable through the existing doctor link.
-- [ ] **Consent:** before recording, show "Ask your doctor before recording." Make the self-recap the default option.
-- [ ] Add pages: visits list, visit detail, the record/recap flow, and the pre-visit brief.
+- [x] **Consent:** before recording, show "Ask your doctor before recording." Make the self-recap the default option.
+- [x] Add pages: visits list, visit detail, the record/recap flow, and the pre-visit brief.
 
 ---
 
@@ -241,8 +241,7 @@ The analyzer already exists (`services/report_extraction.py`, `services/report_i
   - "Is this bad?": say where it sits against the range, how it's trending, and who to ask. No good/bad verdict.
   - "Why could this be high?": give general factors from the glossary, never "yours is high because…".
   - "How does this compare to last time?": answer from the trend data.
-- [ ] **"What should I ask my doctor?"** generates questions, and one tap saves them to the pre-visit brief (Phase 3).
-  - *Generating (with copy) is done; the one-tap save lands with the pre-visit brief in Phase 3.*
+- [x] **"What should I ask my doctor?"** generates questions, and one tap saves them to the pre-visit brief (Phase 3).
 - [x] Context the model gets (all citable): the extracted values, the raw report text, previous values for the same tests, conditions, current medicines, and related symptoms with dates.
 - [x] **Glossary** in `app/data/lab_glossary.py`: about 40 common tests, each with what it measures, general reasons it can be high or low, and typical units, plus MedlinePlus links. Curate it the same way as `data/drug_reference.py`.
 - [x] Safety: run the non-diagnostic guard on every reply, show any critical-value banner first, and never interpret beyond the printed range and the patient's record.
@@ -292,7 +291,7 @@ Each check cites its source.
 
 ### When checks run
 - [x] When a medicine is added or changed, whether manually or by confirming a visit note.
-  - *Manual add/change done; the visit-note path calls the same re-check when Phase 3 lands.*
+  - *Both done: manual changes and confirmed visit notes trigger the re-check.*
 - [x] On demand from the Medications page.
 - [x] As assistant tools (`med_check`, `side_effect_check`), so the chat can answer "Can I take X with my medicines?" using the same three levels.
 
@@ -381,7 +380,7 @@ Each check cites its source.
   - quote Dr. Rao's instruction,
   - ask him to check and log his sugar,
   - suggest raising the pattern at his next visit.
-  - *Verified with real Sonnet (5 runs): every point except the Dr. Rao quote, which needs Phase 3's visit notes.*
+  - *Verified with real Sonnet: every point, including the Dr. Rao quote from the replayed visit note (Phase 3).*
 - **Live 2:** "how have my sugars been since the dose change?"
 - **Live 3 (visit recap):** record a 30-second recap. For example: "Saw Dr. Rao today, she reduced glimepiride back to 1 mg because of the lows, asked me to keep a sugar diary, review in 6 weeks." The note appears; confirming it updates the medicine, logs the dose change, and creates the follow-up reminder. This closes the loop: pattern spotted, discussed with the doctor, dose adjusted.
 

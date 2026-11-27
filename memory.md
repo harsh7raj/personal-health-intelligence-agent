@@ -353,6 +353,27 @@ unknown brand through its verified AI-suggested generics, said as an assumption)
 side-effect check; "Ask about this" pins a stored finding by id. The guard now allows naming who prescribed a
 medicine ("Dr. Rao prescribes"); "commonly prescribed for X" is still blocked.
 
+### D37 — Doctor visit recaps (`services/visits.py`, `/visits`, migration `650a359354c4`)
+Tables `visits` (draft/confirmed; source typed / voice = the patient's own spoken recap, the default for
+audio / recording = the consultation, only with the doctor's agreement, enforced by the API), `reminders`
+(test / follow_up, due date) and `saved_questions` (from a visit, the report explainer or typed; the brief
+lists open ones). Audio -> `llm.transcribe` (Groq Whisper, cached by audio hash in the demo cache). Sonnet
+(`visit_structure`) returns reason, discussed, doctor_said, medicine_changes, tests_ordered, follow_up,
+watch_for, questions_next_time. Code then: attributes every doctor statement ("Dr. Rao said: ..."); moves any
+diagnosis/cause written as plain fact into doctor_said; counts "in 6 weeks"-style dates itself (30-day months).
+Each medicine change is checked: not in RxNorm (AI suggestion shown), not on the list for stop/change, or close
+to a listed medicine with a different ingredient ("glipizide" vs Glimepiride) -> "please check"; confirm is
+refused until the user resolves them. Review screen can preview clashes (med_safety pair check of the new or
+changed medicines against the rest, plus same-class-different-doctor). Confirm applies changes as the visit's
+doctor (`medication_events.source = visit_note`, event date = visit date), creates reminders, saves the
+questions, embeds the note in the entries collection (`visit_<id>`), and re-runs the safety check in the
+background. The assistant gets confirmed notes as `doctor_instructions` (ids D<visit>) and must refer to
+doctors by name, never he/she (the record doesn't say). Pre-visit brief: code only, since the last visit with
+that doctor (else 90 days): last visit, current medicines, other doctors' changes, symptoms, readings and
+alerts, reports outside range, doses not marked, open medication findings, reminders, questions; printable and
+on the doctor share link (`/shared/{token}/brief`). Demo replay runs scripted visits through the same path
+with apply_medicines=False (the script carries the medicine history).
+
 ---
 
 ## 3. PatientHealthState (Pydantic, in-memory shared state)
@@ -589,6 +610,16 @@ pytest suite vs `phia_test` (D11), non-diagnostic guard + audit (D12), loose-end
 ---
 
 ## 9. Work Log (newest first)
+
+- **2026-11-28 (cont. 4)** — **v2 Phase 3: doctor visit recaps** (D37). Tables + Whisper transcription, Sonnet
+  structuring with attribution and code-counted dates, medicine-name checks (incl. misheard names), clash
+  preview, confirm (changes as the doctor's, reminders, saved questions, embedding, safety re-check), visit
+  notes in the assistant pack, pre-visit brief (printable + doctor link), pages (visits, new recap with consent
+  for recordings, review, brief), report-explainer questions save to the brief. Harsh's scripted visit now
+  replays through the real path; the climax reply now quotes "Dr. Rao said on [date] not to skip meals after
+  taking glimepiride". Fixed from live testing: the model called Dr. Rao "he" (now names only). **Tests:** all
+  pass; ruff clean; no drift; frontend builds. **Not browser-tested:** the record/review/brief pages (built
+  and type-checked; backend flow covered by tests).
 
 - **2026-11-28 (cont. 3)** — **v2 Phase 5: medication safety** (D35, D36). Migration for ingredients + label /
   class / run tables, brand->generic with confirmation, openFDA labels and RxClass classes cached, three-level
