@@ -160,3 +160,16 @@ def test_today_is_the_ist_calendar_day_not_the_utc_one(db, monkeypatch):
         cal = build_med_calendar(db, pid)
     assert cal["today"] == date(2026, 3, 15)
     assert [d["date"] for d in cal["days"] if d["is_today"]] == [date(2026, 3, 15)]
+
+
+def test_any_date_range_and_no_doses_before_the_start_date(db):
+    pid = _patient(db)
+    today = clock.today()
+    _add_med(db, pid, "New Med", dose_times=["09:00"], started_on=today - timedelta(days=3))
+    cal = build_med_calendar(db, pid, today - timedelta(days=10), today + timedelta(days=4))
+    assert len(cal["days"]) == 15 and cal["start_date"] == today - timedelta(days=10)
+    with_doses = [d["date"] for d in cal["days"] if d["slots"]]
+    assert min(with_doses) == today - timedelta(days=3)  # nothing before it was started
+    assert all(not s["markable"] for d in cal["days"] if d["is_future"] for s in d["slots"])
+    month = build_med_calendar(db, pid, today - timedelta(days=100), today)  # capped
+    assert len(month["days"]) == 62

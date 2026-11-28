@@ -1,5 +1,5 @@
 import logging
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
@@ -142,10 +142,12 @@ def medication_intelligence(patient: OwnedPatient, db: DbSession) -> dict:
 
 # Declared BEFORE "/{med_id}" so the literal "calendar" segment wins.
 @router.get("/{patient_id}/medications/calendar", response_model=MedCalendarOut)
-def medication_calendar(patient: OwnedPatient, db: DbSession) -> dict:
-    """Rolling 14-day dose tracker: scheduled doses (from each med's dose_times) grouped
-    by purpose, overlaid with the patient's adherence record. Tracking only — no advice."""
-    return build_med_calendar(db, patient.id)
+def medication_calendar(
+    patient: OwnedPatient, db: DbSession, start: date | None = None, end: date | None = None
+) -> dict:
+    """Dose calendar for [start, end] (default: the last 14 days; at most 62 days): scheduled
+    doses from each med's dose_times, overlaid with what was marked taken. Tracking only."""
+    return build_med_calendar(db, patient.id, start, end)
 
 
 # Declared BEFORE "/{med_id}" so the literal "events" segment wins.
