@@ -9,7 +9,7 @@ is never written as a row and is never framed as a missed-dose judgement.
 """
 
 import re
-from datetime import timedelta
+from datetime import date, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -113,11 +113,19 @@ def _timing_for(name: str) -> str | None:
     return ref.get("timing") if ref else None
 
 
-def build_med_calendar(db: Session, patient_id: int) -> dict:
+MAX_RANGE_DAYS = 62  # a month view with its leading/trailing days
+
+
+def build_med_calendar(db: Session, patient_id: int, start: date | None = None, end: date | None = None) -> dict:
+    """Scheduled doses per day for [start, end] (default: the last 14 days), with what was
+    marked taken. Days before a medicine's start date have no doses for it."""
     # Dose days are patient calendar days (IST), not the server's local date or UTC.
     today = clock.today()
-    start = today - timedelta(days=DAYS_BACK)
-    end = today + timedelta(days=DAYS_FORWARD)
+    start = start or today - timedelta(days=DAYS_BACK)
+    end = end or start + timedelta(days=DAYS_BACK + DAYS_FORWARD)
+    if end < start:
+        start, end = end, start
+    end = min(end, start + timedelta(days=MAX_RANGE_DAYS - 1))
 
     meds = list(
         db.scalars(
@@ -156,6 +164,8 @@ def build_med_calendar(db: Session, patient_id: int) -> dict:
         for m in meds:
             # Skip days that aren't "on" for a multi-day schedule (every-N-days).
             if interval[m.id] > 1 and (d - anchor[m.id]).days % interval[m.id] != 0:
+                continue
+            if m.started_on and d < m.started_on:  # not taking it yet
                 continue
             # Canonicalize here too, so even meds saved before normalization render
             # "HH:MM" slots that match (and fit) the dose_logs they write.

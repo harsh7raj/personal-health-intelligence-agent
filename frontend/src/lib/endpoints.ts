@@ -229,6 +229,7 @@ export const createMedication = (
   m: {
     name: string; dose?: string; frequency?: string; dose_times?: string[]; purpose?: string
     prescriber?: string; prescriber_specialty?: string; brand_name?: string; ingredients?: string[]
+    interval_days?: number; started_on?: string
   },
 ) =>
   api.post<Medication>(`/patients/${id}/medications`, m).then((r) => r.data)

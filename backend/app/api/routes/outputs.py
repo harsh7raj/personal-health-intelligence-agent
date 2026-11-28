@@ -28,6 +28,14 @@ def story(patient: OwnedPatient, db: DbSession) -> dict:
     return build_story(db, patient.id)
 
 
+@router.get("/{patient_id}/story/detailed")
+def detailed_story(patient: OwnedPatient, db: DbSession, refresh: bool = False) -> dict:
+    """The Story page: a sectioned, detailed narrative (cached until the record changes)."""
+    from app.services.story import build_detailed_story
+
+    return build_detailed_story(db, patient.id, refresh=refresh)
+
+
 @router.get("/{patient_id}/consultation/pdf")
 def consultation_pdf(patient: OwnedPatient, db: DbSession) -> Response:
     pdf = build_pdf(db, patient.id)
