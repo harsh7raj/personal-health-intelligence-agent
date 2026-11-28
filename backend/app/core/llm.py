@@ -84,14 +84,24 @@ def _cache_path(
     return _cache_dir / f"{task}-{key[:20]}.json"  # type: ignore[operator]
 
 
+def _tier(task: str) -> str:
+    s = get_settings()
+    tier = {**_DEFAULT_TIERS, **s.LLM_TASK_TIERS}.get(task)
+    if tier not in ("fast", "smart", "vision", "best"):
+        raise ValueError(f"Unknown LLM task {task!r}; add it to LLM_TASK_TIERS in app/core/config.py")
+    return tier
+
+
 def model_for(task: str) -> str:
     """The configured model for a task. A partial LLM_TASK_TIERS override keeps the defaults."""
     s = get_settings()
-    tier = {**_DEFAULT_TIERS, **s.LLM_TASK_TIERS}.get(task)
-    models = {"fast": s.MODEL_FAST, "smart": s.MODEL_SMART, "vision": s.MODEL_VISION}
-    if tier not in models:
-        raise ValueError(f"Unknown LLM task {task!r}; add it to LLM_TASK_TIERS in app/core/config.py")
-    return models[tier]
+    models = {"fast": s.MODEL_FAST, "smart": s.MODEL_SMART, "vision": s.MODEL_VISION, "best": s.MODEL_BEST}
+    return models[_tier(task)]
+
+
+def effort_for(task: str) -> str | None:
+    """Reasoning effort for a task's tier on the proxy (None = the model's default)."""
+    return get_settings().LLM_TIER_EFFORT.get(_tier(task))
 
 
 @lru_cache
@@ -159,6 +169,7 @@ def _record_usage(rec: dict[str, Any]) -> None:
 def _complete(
     provider: str, model: str, system: str, user: str, *, task: str, temperature: float,
     as_json: bool, max_tokens: int | None = None, images: list[str] | None = None,
+    effort: str | None = None,
 ) -> Any:
     rec: dict[str, Any] = {
         "task": task, "provider": provider, "model": model, "ok": False,
@@ -169,7 +180,9 @@ def _complete(
         extra: dict[str, Any] = {"response_format": {"type": "json_object"}} if as_json else {}
         if max_tokens:
             extra["max_tokens"] = max_tokens
-        raw = _client(provider).chat.completions.with_raw_response.create(
+        if effort:
+            extra["reasoning_effort"] = effort
+        raw =_client(provider).chat.completions.with_raw_response.create(
             model=model,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": _content(user, images)}],
             temperature=temperature,
@@ -245,7 +258,8 @@ def _route_live(
     if _primary_ready(s):
         try:
             return _complete(PRIMARY, model, system, user, task=task, temperature=temperature,
-                             as_json=as_json, max_tokens=max_tokens, images=images)
+                             as_json=as_json, max_tokens=max_tokens, images=images,
+                             effort=effort_for(task))
         except Exception as exc:  # noqa: BLE001 - any proxy failure falls back
             last_error = exc
             logger.warning("LiteLLM call for %s failed (%s); trying the Groq fallback", task, exc)
@@ -322,7 +336,7 @@ def describe() -> str:
     """One line for the startup log; never includes secrets."""
     s = get_settings()
     primary = (
-        f"LiteLLM fast={s.MODEL_FAST} smart={s.MODEL_SMART}"
+        f"LiteLLM fast={s.MODEL_FAST} smart={s.MODEL_SMART} best={s.MODEL_BEST}"
         if _primary_ready(s)
         else "LiteLLM not configured"
     )

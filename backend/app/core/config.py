@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     MODEL_FAST: str = "claude-haiku-5-5"  # small jobs: routing, parsing, extraction
     MODEL_SMART: str = "claude-sonnet-5-5"  # anything a person reads
     MODEL_VISION: str = "claude-sonnet-5-5"  # report photos and scans (Phase 4)
+    MODEL_BEST: str = "claude-opus-5-5"  # the assistant's chat replies (memory.md D41)
+    # Reasoning effort per tier, sent to the proxy only (not the Groq fallback).
+    LLM_TIER_EFFORT: dict[str, str] = {"best": "medium"}
     # Which tier each task uses. Override with JSON in .env, e.g. LLM_TASK_TIERS='{"story":"fast"}'.
     LLM_TASK_TIERS: dict[str, str] = {
         "router": "fast",
@@ -72,7 +75,7 @@ class Settings(BaseSettings):
         "observations": "smart",
         "drug_reference": "smart",
         "story": "smart",
-        "assistant": "smart",
+        "assistant": "best",
         "report_vision": "vision",
         "report_explainer": "smart",
         "report_questions": "smart",
@@ -93,6 +96,7 @@ class Settings(BaseSettings):
     LLM_PRIMARY_MAX_RETRIES: int = 1
     # Estimated USD per 1M tokens [input, output]; LiteLLM's own cost header wins when present.
     LLM_PRICES: dict[str, list[float]] = {
+        "claude-opus-5-5": [4.0, 20.0],  # measured from LiteLLM's cost header
         "claude-sonnet-5-5": [2.0, 10.0],
         "claude-haiku-5-5": [0.10, 0.50],
         "openai/gpt-oss-120b": [0.0, 0.0],  # Groq free tier

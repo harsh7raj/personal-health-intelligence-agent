@@ -403,6 +403,12 @@ commands, credits). Credits footer in the app (DDInter CC BY-NC-SA, openFDA noti
 (short answers) and `Docs/REPORT_NOTES.md` (sections, eval result, measured cost per interaction, limitations,
 screenshots to retake). UI overhaul (Phase 6) skipped by the owner's call: the app works as is.
 
+### D41 — The assistant runs on Opus 5.5 at medium effort
+Owner's call (2026-11-28). A new "best" tier (`MODEL_BEST=claude-opus-5-5`) used only by the `assistant` task;
+`LLM_TIER_EFFORT={"best": "medium"}` sends `reasoning_effort` to the LiteLLM proxy only (never to the Groq
+fallback). Measured on Harsh: about $0.036 and 13 s per reply, against about $0.02 and 8 s on Sonnet. Every other
+task keeps its tier, and the demo cache is unaffected (it never caches assistant replies).
+
 ---
 
 ## 3. PatientHealthState (Pydantic, in-memory shared state)
