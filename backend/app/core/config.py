@@ -61,11 +61,11 @@ class Settings(BaseSettings):
     LLM_BASE_URL: str = ""
     LLM_API_KEY: str = ""
     MODEL_FAST: str = "claude-haiku-5-5"  # small jobs: routing, parsing, extraction
-    MODEL_SMART: str = "claude-sonnet-5-5"  # anything a person reads
-    MODEL_VISION: str = "claude-sonnet-5-5"  # report photos and scans (Phase 4)
+    MODEL_SMART: str = "claude-opus-5-5"  # anything a person reads
+    MODEL_VISION: str = "claude-opus-5-5"  # report photos and scans (Phase 4)
     MODEL_BEST: str = "claude-opus-5-5"  # the assistant's chat replies (memory.md D41)
     # Reasoning effort per tier, sent to the proxy only (not the Groq fallback).
-    LLM_TIER_EFFORT: dict[str, str] = {"best": "medium"}
+    LLM_TIER_EFFORT: dict[str, str] = {"smart": "medium", "vision": "medium", "best": "medium"}
     # Which tier each task uses. Override with JSON in .env, e.g. LLM_TASK_TIERS='{"story":"fast"}'.
     LLM_TASK_TIERS: dict[str, str] = {
         "router": "fast",

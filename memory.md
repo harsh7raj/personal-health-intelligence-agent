@@ -408,6 +408,9 @@ Owner's call (2026-11-28). A new "best" tier (`MODEL_BEST=claude-opus-5-5`) used
 `LLM_TIER_EFFORT={"best": "medium"}` sends `reasoning_effort` to the LiteLLM proxy only (never to the Groq
 fallback). Measured on Harsh: about $0.036 and 13 s per reply, against about $0.02 and 8 s on Sonnet. Every other
 task keeps its tier, and the demo cache is unaffected (it never caches assistant replies).
+Later the same day (owner's call): every Sonnet use moved to Opus 5.5 at medium too (`MODEL_SMART` and
+`MODEL_VISION`, effort medium for smart, vision and best). Haiku stays for the fast tier. Demo replays still
+read the committed cache (keyed without the model), so a reset stays offline and free.
 
 ---
 
