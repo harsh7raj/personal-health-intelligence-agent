@@ -74,6 +74,25 @@ def test_each_task_uses_its_configured_tier(cfg, monkeypatch):
     assert primary.calls[0]["response_format"] == {"type": "json_object"}
 
 
+def test_assistant_uses_the_best_tier_with_effort_on_the_proxy_only(cfg, monkeypatch):
+    monkeypatch.setattr(cfg, "MODEL_BEST", "best-model")
+    primary = _FakeClient(_Raw("hello"))
+    _use(monkeypatch, primary, _FakeClient(error=AssertionError("fallback not expected")))
+    assert llm.llm_text("assistant", "sys", "user") == "hello"
+    assert primary.calls[0]["model"] == "best-model"
+    assert primary.calls[0]["reasoning_effort"] == "medium"
+
+    fallback = _FakeClient(_Raw("via groq"))
+    _use(monkeypatch, _FakeClient(error=RuntimeError("proxy down")), fallback)
+    assert llm.llm_text("assistant", "sys", "user") == "via groq"
+    assert "reasoning_effort" not in fallback.calls[0]
+    # Other tiers send no effort.
+    other = _FakeClient(_Raw('{"a": 1}'))
+    _use(monkeypatch, other, fallback)
+    llm.llm_json("intake", "sys", "user")
+    assert "reasoning_effort" not in other.calls[0]
+
+
 def test_unknown_task_is_rejected(cfg):
     with pytest.raises(ValueError):
         llm.llm_json("not-a-task", "sys", "user")
